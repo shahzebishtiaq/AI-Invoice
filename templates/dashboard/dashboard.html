@@ -1,0 +1,20 @@
+<h1>Dashboard</h1>
+
+<canvas id="chart"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const ctx = document.getElementById('chart');
+
+new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: ['Paid', 'Pending'],
+        datasets: [{
+            data: [{{ paid }}, {{ pending }}],
+            backgroundColor: ['green', 'orange']
+        }]
+    }
+});
+</script>

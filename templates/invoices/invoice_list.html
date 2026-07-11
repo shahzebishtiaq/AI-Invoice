@@ -1,0 +1,11 @@
+<h1>Invoices</h1>
+
+<ul>
+    {% for invoice in invoices %}
+        <li>
+            <a href="{% url 'invoice_detail' invoice.pk %}">
+                {{ invoice.invoice_number }} - {{ invoice.client.name }}
+            </a>
+        </li>
+    {% endfor %}
+</ul>
