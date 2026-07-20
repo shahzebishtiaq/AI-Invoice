@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ page_title }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ page_title }}</h1>
+
+        <p class="text-muted">
+            Add the invoice details and line items.
+        </p>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="card form-card">
+        <h2>Invoice information</h2>
+
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="{{ form.client.id_for_label }}">
+                    Client
+                </label>
+
+                {{ form.client }}
+
+                {% for error in form.client.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.invoice_number.id_for_label }}">
+                    Invoice number
+                </label>
+
+                {{ form.invoice_number }}
+
+                {% for error in form.invoice_number.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.issue_date.id_for_label }}">
+                    Issue date
+                </label>
+
+                {{ form.issue_date }}
+
+                {% for error in form.issue_date.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.due_date.id_for_label }}">
+                    Due date
+                </label>
+
+                {{ form.due_date }}
+
+                {% for error in form.due_date.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.status.id_for_label }}">
+                    Status
+                </label>
+
+                {{ form.status }}
+
+                {% for error in form.status.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.tax_rate.id_for_label }}">
+                    Tax rate (%)
+                </label>
+
+                {{ form.tax_rate }}
+
+                {% for error in form.tax_rate.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.notes.id_for_label }}">
+                Notes
+            </label>
+
+            {{ form.notes }}
+
+            {% for error in form.notes.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Invoice items</h2>
+
+        {{ formset.management_form }}
+
+        {% if formset.non_form_errors %}
+            <div class="alert alert-error">
+                {% for error in formset.non_form_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit price</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for item_form in formset %}
+                        <tr>
+                            <td>
+                                {{ item_form.id }}
+                                {{ item_form.description }}
+
+                                {% for error in item_form.description.errors %}
+                                    <small class="error-text">
+                                        {{ error }}
+                                    </small>
+                                {% endfor %}
+                            </td>
+
+                            <td>
+                                {{ item_form.quantity }}
+
+                                {% for error in item_form.quantity.errors %}
+                                    <small class="error-text">
+                                        {{ error }}
+                                    </small>
+                                {% endfor %}
+                            </td>
+
+                            <td>
+                                {{ item_form.unit_price }}
+
+                                {% for error in item_form.unit_price.errors %}
+                                    <small class="error-text">
+                                        {{ error }}
+                                    </small>
+                                {% endfor %}
+                            </td>
+
+                            <td>
+                                {% if item_form.instance.pk %}
+                                    {{ item_form.DELETE }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+
+                        {% if item_form.non_field_errors %}
+                            <tr>
+                                <td colspan="4">
+                                    {% for error in item_form.non_field_errors %}
+                                        <small class="error-text">
+                                            {{ error }}
+                                        </small>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            {{ button_text }}
+        </button>
+
+        {% if invoice %}
+            <a
+                href="{% url 'invoice_detail' invoice.pk %}"
+                class="btn btn-light"
+            >
+                Cancel
+            </a>
+        {% else %}
+            <a
+                href="{% url 'invoice_list' %}"
+                class="btn btn-light"
+            >
+                Cancel
+            </a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}

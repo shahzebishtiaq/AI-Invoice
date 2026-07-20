@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ page_title }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ page_title }}</h1>
+
+        <p class="text-muted">
+            Enter the customer's contact and business information.
+        </p>
+    </div>
+</div>
+
+<div class="card form-card">
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">
+                Client name
+            </label>
+
+            {{ form.name }}
+
+            {% for error in form.name.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">
+                Email
+            </label>
+
+            {{ form.email }}
+
+            {% for error in form.email.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.phone.id_for_label }}">
+                Phone
+            </label>
+
+            {{ form.phone }}
+
+            {% for error in form.phone.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.company_name.id_for_label }}">
+                Company name
+            </label>
+
+            {{ form.company_name }}
+
+            {% for error in form.company_name.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.address.id_for_label }}">
+                Address
+            </label>
+
+            {{ form.address }}
+
+            {% for error in form.address.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.notes.id_for_label }}">
+                Notes
+            </label>
+
+            {{ form.notes }}
+
+            {% for error in form.notes.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                {{ button_text }}
+            </button>
+
+            {% if client %}
+                <a
+                    href="{% url 'client_detail' client.pk %}"
+                    class="btn btn-light"
+                >
+                    Cancel
+                </a>
+            {% else %}
+                <a
+                    href="{% url 'client_list' %}"
+                    class="btn btn-light"
+                >
+                    Cancel
+                </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

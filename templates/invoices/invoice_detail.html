@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ invoice.invoice_number }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ invoice.invoice_number }}</h1>
+
+        <p class="text-muted">
+            Invoice for {{ invoice.client.name }}
+        </p>
+    </div>
+
+    <div class="button-group">
+        <a
+            href="{% url 'invoice_pdf' invoice.pk %}"
+            class="btn btn-secondary"
+        >
+            Download PDF
+        </a>
+
+        <a
+            href="{% url 'invoice_update' invoice.pk %}"
+            class="btn btn-light"
+        >
+            Edit
+        </a>
+
+        <a
+            href="{% url 'invoice_delete' invoice.pk %}"
+            class="btn btn-danger"
+        >
+            Delete
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="invoice-header">
+        <div>
+        {% if request.user.company_logo %}
+    <img
+        src="{{ request.user.company_logo.url }}"
+        alt="Company logo"
+        style="max-width: 120px; max-height: 80px; margin-bottom: 12px;"
+    >
+{% endif %}
+            <h2>
+                 {{ request.user.display_company_name }}
+            </h2>
+
+            <p>
+                {{ request.user.email }}
+            </p>
+
+            {% if request.user.phone_number %}
+                <p>
+                    {{ request.user.phone_number }}
+                </p>
+                {% if request.user.company_address %}
+    <p>
+        {{ request.user.company_address|linebreaksbr }}
+    </p>
+{% endif %}
+            {% endif %}
+        </div>
+
+        <div>
+            <span class="status status-{{ invoice.status }}">
+                {{ invoice.get_status_display }}
+            </span>
+        </div>
+    </div>
+
+    <div class="details-grid">
+        <div>
+            <h3>Bill to</h3>
+
+            <p>
+                <strong>{{ invoice.client.name }}</strong>
+            </p>
+
+            {% if invoice.client.company_name %}
+                <p>
+                    {{ invoice.client.company_name }}
+                </p>
+            {% endif %}
+
+            <p>
+                {{ invoice.client.email }}
+            </p>
+
+            {% if invoice.client.address %}
+                <p>
+                    {{ invoice.client.address|linebreaksbr }}
+                </p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h3>Invoice details</h3>
+
+            <p>
+                <strong>Issue date:</strong>
+                {{ invoice.issue_date|date:"F d, Y" }}
+            </p>
+
+            <p>
+                <strong>Due date:</strong>
+
+                {% if invoice.due_date %}
+                    {{ invoice.due_date|date:"F d, Y" }}
+                {% else %}
+                    Not specified
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Quantity</th>
+                    <th>Unit price</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in invoice.items.all %}
+                    <tr>
+                        <td>{{ item.description }}</td>
+                        <td>{{ item.quantity|floatformat:2 }}</td>
+                        <td>${{ item.unit_price|floatformat:2 }}</td>
+                        <td>${{ item.line_total|floatformat:2 }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="invoice-totals">
+        <p>
+            <span>Subtotal:</span>
+            <strong>${{ invoice.subtotal|floatformat:2 }}</strong>
+        </p>
+
+        <p>
+            <span>
+                Tax ({{ invoice.tax_rate|floatformat:2 }}%):
+            </span>
+
+            <strong>
+                ${{ invoice.tax_amount|floatformat:2 }}
+            </strong>
+        </p>
+
+        <p class="invoice-total">
+            <span>Total:</span>
+            <strong>${{ invoice.total|floatformat:2 }}</strong>
+        </p>
+    </div>
+
+    {% if invoice.notes %}
+        <div class="invoice-notes">
+            <h3>Notes</h3>
+
+            <p>
+                {{ invoice.notes|linebreaksbr }}
+            </p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Actions</h2>
+
+    <div class="button-group">
+        <form
+            method="post"
+            action="{% url 'invoice_send_email' invoice.pk %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                Email invoice
+            </button>
+        </form>
+
+        {% if invoice.status != "paid" %}
+            <form
+                method="post"
+                action="{% url 'invoice_mark_paid' invoice.pk %}"
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="btn btn-success"
+                >
+                    Mark as paid
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}
+Create invoice with AI
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Create invoice with AI</h1>
+
+        <p class="text-muted">
+            Describe the work in normal English and AI will create
+            the invoice items.
+        </p>
+    </div>
+</div>
+
+{% if not has_clients %}
+    <div class="card empty-state">
+        <h2>Add a client first</h2>
+
+        <p>
+            An invoice must belong to one of your clients.
+        </p>
+
+        <a
+            href="{% url 'client_create' %}"
+            class="btn btn-primary"
+        >
+            Add client
+        </a>
+    </div>
+{% else %}
+    <div class="card form-card">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ form.client.id_for_label }}">
+                    Client
+                </label>
+
+                {{ form.client }}
+
+                {% for error in form.client.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.prompt.id_for_label }}">
+                    Describe the invoice
+                </label>
+
+                {{ form.prompt }}
+
+                {% if form.prompt.help_text %}
+                    <small class="help-text">
+                        {{ form.prompt.help_text }}
+                    </small>
+                {% endif %}
+
+                {% for error in form.prompt.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="{{ form.tax_rate.id_for_label }}">
+                        Tax rate (%)
+                    </label>
+
+                    {{ form.tax_rate }}
+
+                    {% for error in form.tax_rate.errors %}
+                        <small class="error-text">
+                            {{ error }}
+                        </small>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.due_date.id_for_label }}">
+                        Due date
+                    </label>
+
+                    {{ form.due_date }}
+
+                    {% for error in form.due_date.errors %}
+                        <small class="error-text">
+                            {{ error }}
+                        </small>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.notes.id_for_label }}">
+                    Notes
+                </label>
+
+                {{ form.notes }}
+
+                {% for error in form.notes.errors %}
+                    <small class="error-text">
+                        {{ error }}
+                    </small>
+                {% endfor %}
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Example prompt:</strong>
+
+                Create an invoice for a five-page business website
+                for $1,200, logo design for $250, and one year of
+                hosting for $150.
+            </div>
+
+            <div class="form-actions">
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Generate invoice
+                </button>
+
+                <a
+                    href="{% url 'invoice_list' %}"
+                    class="btn btn-light"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+{% endif %}
+{% endblock %}

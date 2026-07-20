@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}
+Dashboard
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+
+        <p class="text-muted">
+            Welcome back, {{ request.user.username }}.
+            Here is an overview of your invoicing business.
+        </p>
+    </div>
+
+    <div class="button-group">
+        <a
+            href="{% url 'ai_generate_invoice' %}"
+            class="btn btn-secondary"
+        >
+            Create with AI
+        </a>
+
+        <a
+            href="{% url 'invoice_create' %}"
+            class="btn btn-primary"
+        >
+            Create invoice
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="section-header">
+        <div>
+            <h2>Your subscription</h2>
+
+            <p class="text-muted">
+                Current plan and invoice usage.
+            </p>
+        </div>
+
+        <span class="status status-{{ subscription.plan }}">
+            {{ subscription.get_plan_display }}
+        </span>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-label">
+                Current plan
+            </span>
+
+            <strong class="stat-value">
+                {{ subscription.get_plan_display }}
+            </strong>
+
+            {% if subscription.is_active %}
+                <span class="text-muted">
+                    Active subscription
+                </span>
+            {% else %}
+                <span class="text-muted">
+                    Subscription inactive
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Invoice usage
+            </span>
+
+            {% if invoice_limit %}
+                <strong class="stat-value">
+                    {{ total_invoices }} / {{ invoice_limit }}
+                </strong>
+
+                <span class="text-muted">
+                    Free-plan invoices used
+                </span>
+            {% else %}
+                <strong class="stat-value">
+                    Unlimited
+                </strong>
+
+                <span class="text-muted">
+                    Pro-plan invoice access
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Remaining invoices
+            </span>
+
+            {% if remaining_invoices is not None %}
+                <strong class="stat-value">
+                    {{ remaining_invoices }}
+                </strong>
+
+                <span class="text-muted">
+                    Available on your current plan
+                </span>
+            {% else %}
+                <strong class="stat-value">
+                    Unlimited
+                </strong>
+
+                <span class="text-muted">
+                    No invoice limit
+                </span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if invoice_limit and remaining_invoices == 0 %}
+        <div class="alert alert-warning">
+            You have reached the free-plan limit of
+            {{ invoice_limit }} invoices.
+            Upgrade to Pro to create more invoices.
+        </div>
+    {% endif %}
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="stat-label">
+            Total clients
+        </span>
+
+        <strong class="stat-value">
+            {{ total_clients }}
+        </strong>
+
+        <a href="{% url 'client_list' %}">
+            View clients
+        </a>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-label">
+            Total invoices
+        </span>
+
+        <strong class="stat-value">
+            {{ total_invoices }}
+        </strong>
+
+        <a href="{% url 'invoice_list' %}">
+            View invoices
+        </a>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-label">
+            Paid revenue
+        </span>
+
+        <strong class="stat-value">
+            {{ request.user.default_currency }}
+            {{ paid_revenue|floatformat:2 }}
+        </strong>
+
+        <span class="text-muted">
+            {{ paid_invoices }}
+            paid invoice{{ paid_invoices|pluralize }}
+        </span>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-label">
+            Unpaid amount
+        </span>
+
+        <strong class="stat-value">
+            {{ request.user.default_currency }}
+            {{ unpaid_amount|floatformat:2 }}
+        </strong>
+
+        <span class="text-muted">
+            Sent and overdue invoices
+        </span>
+    </div>
+</div>
+
+<div class="stats-grid status-stats">
+    <div class="stat-card">
+        <span class="stat-label">
+            Draft
+        </span>
+
+        <strong class="stat-value">
+            {{ draft_invoices }}
+        </strong>
+
+        <span class="text-muted">
+            {{ request.user.default_currency }}
+            {{ draft_amount|floatformat:2 }}
+        </span>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-label">
+            Sent
+        </span>
+
+        <strong class="stat-value">
+            {{ sent_invoices }}
+        </strong>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-label">
+            Paid
+        </span>
+
+        <strong class="stat-value">
+            {{ paid_invoices }}
+        </strong>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-label">
+            Overdue
+        </span>
+
+        <strong class="stat-value">
+            {{ overdue_invoices }}
+        </strong>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-label">
+            Cancelled
+        </span>
+
+        <strong class="stat-value">
+            {{ cancelled_invoices }}
+        </strong>
+    </div>
+</div>
+
+<div class="card">
+    <div class="section-header">
+        <div>
+            <h2>Recent invoices</h2>
+
+            <p class="text-muted">
+                Your five most recently created invoices.
+            </p>
+        </div>
+
+        <a
+            href="{% url 'invoice_list' %}"
+            class="btn btn-light"
+        >
+            View all
+        </a>
+    </div>
+
+    {% if recent_invoices %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Client</th>
+                        <th>Issue date</th>
+                        <th>Due date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for invoice in recent_invoices %}
+                        <tr>
+                            <td>
+                                <a
+                                    href="{% url 'invoice_detail' invoice.pk %}"
+                                >
+                                    {{ invoice.invoice_number }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {{ invoice.client.name }}
+                            </td>
+
+                            <td>
+                                {{ invoice.issue_date|date:"M d, Y" }}
+                            </td>
+
+                            <td>
+                                {% if invoice.due_date %}
+                                    {{ invoice.due_date|date:"M d, Y" }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <span class="status status-{{ invoice.status }}">
+                                    {{ invoice.get_status_display }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ request.user.default_currency }}
+                                {{ invoice.total|floatformat:2 }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h2>No invoices yet</h2>
+
+            <p>
+                Create your first client and invoice to see
+                dashboard statistics.
+            </p>
+
+            <div class="button-group">
+                <a
+                    href="{% url 'client_create' %}"
+                    class="btn btn-secondary"
+                >
+                    Add client
+                </a>
+
+                <a
+                    href="{% url 'invoice_create' %}"
+                    class="btn btn-primary"
+                >
+                    Create invoice
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

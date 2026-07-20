@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}
+Delete invoice
+{% endblock %}
+
+{% block content %}
+<div class="card danger-card">
+    <h1>Delete invoice</h1>
+
+    <p>
+        Are you sure you want to delete
+        <strong>{{ invoice.invoice_number }}</strong>?
+    </p>
+
+    <p class="text-muted">
+        This action cannot be undone.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-actions">
+            <button
+                type="submit"
+                class="btn btn-danger"
+            >
+                Yes, delete invoice
+            </button>
+
+            <a
+                href="{% url 'invoice_detail' invoice.pk %}"
+                class="btn btn-light"
+            >
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

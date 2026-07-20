@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}
+Invoices
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Invoices</h1>
+
+        <p class="text-muted">
+            Create, send, and track customer invoices.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'invoice_create' %}"
+        class="btn btn-primary"
+    >
+        Create invoice
+    </a>
+</div>
+
+<div class="card">
+    <form
+        method="get"
+        class="search-form"
+    >
+        <input
+            type="search"
+            name="q"
+            value="{{ query }}"
+            placeholder="Search invoices or clients"
+            class="form-control"
+        >
+
+        <select
+            name="status"
+            class="form-control"
+        >
+            <option value="">
+                All statuses
+            </option>
+
+            {% for value, label in status_choices %}
+                <option
+                    value="{{ value }}"
+                    {% if selected_status == value %}selected{% endif %}
+                >
+                    {{ label }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <button
+            type="submit"
+            class="btn btn-secondary"
+        >
+            Filter
+        </button>
+
+        {% if query or selected_status %}
+            <a
+                href="{% url 'invoice_list' %}"
+                class="btn btn-light"
+            >
+                Clear
+            </a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card">
+    {% if invoices %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Client</th>
+                        <th>Issue date</th>
+                        <th>Due date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for invoice in invoices %}
+                        <tr>
+                            <td>
+                                <a
+                                    href="{% url 'invoice_detail' invoice.pk %}"
+                                >
+                                    {{ invoice.invoice_number }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {{ invoice.client.name }}
+                            </td>
+
+                            <td>
+                                {{ invoice.issue_date|date:"M d, Y" }}
+                            </td>
+
+                            <td>
+                                {% if invoice.due_date %}
+                                    {{ invoice.due_date|date:"M d, Y" }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <span class="status status-{{ invoice.status }}">
+                                    {{ invoice.get_status_display }}
+                                </span>
+                            </td>
+
+                            <td>
+                                ${{ invoice.total|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                <a
+                                    href="{% url 'invoice_detail' invoice.pk %}"
+                                    class="btn btn-small btn-light"
+                                >
+                                    View
+                                </a>
+
+                                <a
+                                    href="{% url 'invoice_update' invoice.pk %}"
+                                    class="btn btn-small btn-secondary"
+                                >
+                                    Edit
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h2>No invoices found</h2>
+
+            <p>
+                Create an invoice after adding your first client.
+            </p>
+
+            <a
+                href="{% url 'invoice_create' %}"
+                class="btn btn-primary"
+            >
+                Create invoice
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

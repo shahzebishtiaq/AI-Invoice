@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {% block title %}
+            AI Invoice SaaS
+        {% endblock %}
+    </title>
+
+    {% load static %}
+
+    <link
+        rel="stylesheet"
+        href="{% static 'css/style.css' %}"
+    >
+
+</head>
+
+<body>
+
+<header class="navbar">
+
+    <div class="container">
+
+        <div class="logo">
+
+            <a href="{% url 'landing_page' %}">
+                AI Invoice SaaS
+            </a>
+
+        </div>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Open navigation menu">
+            <span></span><span></span><span></span>
+        </button>
+
+        {% if request.user.is_authenticated %}
+
+            <nav id="primary-navigation" class="primary-navigation">
+
+                <ul class="nav-links">
+
+                    <li>
+                        <a href="{% url 'dashboard' %}">
+                            Dashboard
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'client_list' %}">
+                            Clients
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'invoice_list' %}">
+                            Invoices
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'ai_generate_invoice' %}">
+                            AI Invoice
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'pricing' %}">
+                            Pricing
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'account_settings' %}">
+                            Settings
+                        </a>
+                    </li>
+
+                </ul>
+
+            </nav>
+
+            <div class="user-menu">
+
+                <span class="username">
+                    {{ request.user.username }}
+                </span>
+
+                <form
+                    method="post"
+                    action="{% url 'logout' %}"
+                >
+
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="btn btn-danger btn-small"
+                    >
+                        Logout
+                    </button>
+
+                </form>
+
+            </div>
+
+        {% else %}
+
+            <nav id="primary-navigation" class="primary-navigation">
+
+                <ul class="nav-links">
+
+                    <li>
+                        <a href="{% url 'landing_page' %}">
+                            Home
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'pricing' %}">
+                            Pricing
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'login' %}">
+                            Login
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{% url 'register' %}">
+                            Register
+                        </a>
+                    </li>
+
+                </ul>
+
+            </nav>
+
+        {% endif %}
+
+    </div>
+
+</header>
+
+<main class="container">
+
+    {% if messages %}
+
+        {% for message in messages %}
+
+            <div class="alert alert-{{ message.tags }}">
+
+                {{ message }}
+
+            </div>
+
+        {% endfor %}
+
+    {% endif %}
+
+    {% block content %}
+
+    {% endblock %}
+
+</main>
+
+<footer class="footer">
+
+    <div class="container">
+
+        <p>
+
+            © {% now "Y" %}
+
+            AI Invoice SaaS.
+
+            All Rights Reserved.
+
+        </p>
+
+    </div>
+
+</footer>
+
+<script src="{% static 'js/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+
+</body>
+
+</html>

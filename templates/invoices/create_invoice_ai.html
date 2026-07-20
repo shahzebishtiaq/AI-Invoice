@@ -1,0 +1,9 @@
+<form method="post">
+    {% csrf_token %}
+
+    <input type="text" name="prompt" placeholder="e.g. Website design $500">
+
+    <input type="number" name="client_id" placeholder="Client ID">
+
+    <button type="submit">Generate Invoice</button>
+</form>

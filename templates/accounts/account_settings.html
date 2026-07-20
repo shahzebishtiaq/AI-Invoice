@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}
+Account Settings
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Account settings</h1>
+
+        <p class="text-muted">
+            Manage your personal and company information.
+        </p>
+    </div>
+</div>
+
+<form
+    method="post"
+    enctype="multipart/form-data"
+>
+    {% csrf_token %}
+
+    <div class="settings-layout">
+        <div>
+            <div class="card">
+                <h2>Personal information</h2>
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-error">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="{{ form.first_name.id_for_label }}">
+                            First name
+                        </label>
+
+                        {{ form.first_name }}
+
+                        {% for error in form.first_name.errors %}
+                            <small class="error-text">
+                                {{ error }}
+                            </small>
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.last_name.id_for_label }}">
+                            Last name
+                        </label>
+
+                        {{ form.last_name }}
+
+                        {% for error in form.last_name.errors %}
+                            <small class="error-text">
+                                {{ error }}
+                            </small>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.email.id_for_label }}">
+                        Email address
+                    </label>
+
+                    {{ form.email }}
+
+                    {% for error in form.email.errors %}
+                        <small class="error-text">
+                            {{ error }}
+                        </small>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        value="{{ request.user.username }}"
+                        disabled
+                    >
+
+                    <small class="help-text">
+                        Your username cannot currently be changed.
+                    </small>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Company information</h2>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="{{ form.company_name.id_for_label }}">
+                            Company name
+                        </label>
+
+                        {{ form.company_name }}
+
+                        {% for error in form.company_name.errors %}
+                            <small class="error-text">
+                                {{ error }}
+                            </small>
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.phone_number.id_for_label }}">
+                            Phone number
+                        </label>
+
+                        {{ form.phone_number }}
+
+                        {% for error in form.phone_number.errors %}
+                            <small class="error-text">
+                                {{ error }}
+                            </small>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.company_address.id_for_label }}">
+                        Company address
+                    </label>
+
+                    {{ form.company_address }}
+
+                    {% for error in form.company_address.errors %}
+                        <small class="error-text">
+                            {{ error }}
+                        </small>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Invoice defaults</h2>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="{{ form.default_currency.id_for_label }}">
+                            Default currency
+                        </label>
+
+                        {{ form.default_currency }}
+
+                        {% for error in form.default_currency.errors %}
+                            <small class="error-text">
+                                {{ error }}
+                            </small>
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.default_tax_rate.id_for_label }}">
+                            Default tax rate (%)
+                        </label>
+
+                        {{ form.default_tax_rate }}
+
+                        {% for error in form.default_tax_rate.errors %}
+                            <small class="error-text">
+                                {{ error }}
+                            </small>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card company-logo-card">
+                <h2>Company logo</h2>
+
+                {% if request.user.company_logo %}
+                    <div class="company-logo-preview">
+                        <img
+                            src="{{ request.user.company_logo.url }}"
+                            alt="{{ request.user.company_name }} logo"
+                        >
+                    </div>
+
+                    <p class="text-muted">
+                        Uploading a new image will replace the current logo.
+                    </p>
+                {% else %}
+                    <div class="company-logo-placeholder">
+                        <span>
+                            No logo uploaded
+                        </span>
+                    </div>
+                {% endif %}
+
+                <div class="form-group">
+                    <label for="{{ form.company_logo.id_for_label }}">
+                        Upload logo
+                    </label>
+
+                    {{ form.company_logo }}
+
+                    <small class="help-text">
+                        JPG, PNG, or WebP. Maximum size: 2 MB.
+                    </small>
+
+                    {% for error in form.company_logo.errors %}
+                        <small class="error-text">
+                            {{ error }}
+                        </small>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Invoice identity</h2>
+
+                <div class="company-preview">
+                    {% if request.user.company_logo %}
+                        <img
+                            src="{{ request.user.company_logo.url }}"
+                            alt="Company logo"
+                        >
+                    {% endif %}
+
+                    <strong>
+                        {{ request.user.display_company_name }}
+                    </strong>
+
+                    <span>
+                        {{ request.user.email }}
+                    </span>
+
+                    {% if request.user.phone_number %}
+                        <span>
+                            {{ request.user.phone_number }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions settings-save-bar">
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            Save settings
+        </button>
+
+        <a
+            href="{% url 'dashboard' %}"
+            class="btn btn-light"
+        >
+            Cancel
+        </a>
+    </div>
+</form>
+
+{% if request.user.company_logo %}
+    <form
+        method="post"
+        action="{% url 'remove_company_logo' %}"
+        class="remove-logo-form"
+    >
+        {% csrf_token %}
+
+        <button
+            type="submit"
+            class="btn btn-danger"
+        >
+            Remove company logo
+        </button>
+    </form>
+{% endif %}
+{% endblock %}
