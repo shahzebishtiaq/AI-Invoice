@@ -1,17 +1,12 @@
 import logging
-from datetime import (
-    datetime,
-    timezone as datetime_timezone,
-)
+from datetime import datetime
+from datetime import timezone as datetime_timezone
 
 import stripe
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import (
-    HttpResponse,
-    HttpResponseBadRequest,
-)
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -28,17 +23,25 @@ logger = logging.getLogger(__name__)
 
 
 def configure_stripe():
-    secret_key = settings.STRIPE_SECRET_KEY.strip()
+    secret_key = getattr(
+        settings,
+        "STRIPE_SECRET_KEY",
+        "",
+    ).strip()
 
     if not secret_key:
         raise ValueError(
-            "STRIPE_SECRET_KEY is not configured in the .env file."
+            "STRIPE_SECRET_KEY is not configured."
         )
 
-    if not secret_key.startswith("sk_test_"):
+    if not secret_key.startswith(
+        (
+            "sk_test_",
+            "sk_live_",
+        )
+    ):
         raise ValueError(
-            "STRIPE_SECRET_KEY must be a real Stripe test secret key "
-            "starting with sk_test_."
+            "STRIPE_SECRET_KEY has an invalid format."
         )
 
     stripe.api_key = secret_key
@@ -48,10 +51,54 @@ def timestamp_to_datetime(timestamp):
     if not timestamp:
         return None
 
-    return datetime.fromtimestamp(
-        timestamp,
-        tz=datetime_timezone.utc,
+    try:
+        return datetime.fromtimestamp(
+            int(timestamp),
+            tz=datetime_timezone.utc,
+        )
+    except (TypeError, ValueError, OverflowError):
+        logger.warning(
+            "Invalid Stripe timestamp received: %r",
+            timestamp,
+        )
+        return None
+
+
+def get_subscription_period_end(stripe_subscription):
+    """
+    Stripe API versions may put current_period_end either
+    on the subscription or on the subscription item.
+    """
+
+    period_end = stripe_subscription.get(
+        "current_period_end"
     )
+
+    if period_end:
+        return period_end
+
+    items = stripe_subscription.get(
+        "items",
+        {},
+    )
+
+    if hasattr(items, "get"):
+        item_data = items.get(
+            "data",
+            [],
+        )
+    else:
+        item_data = []
+
+    if item_data:
+        first_item = item_data[0]
+
+        if hasattr(first_item, "get"):
+            return first_item.get(
+                "current_period_end"
+            )
+
+    return None
 
 
 @login_required
@@ -69,46 +116,37 @@ def create_checkout_session(request):
             request,
             "You already have an active Pro subscription.",
         )
+        return redirect("pricing")
 
-        return redirect(
-            "pricing"
-        )
-
-    price_id = settings.STRIPE_PRO_PRICE_ID.strip()
+    price_id = getattr(
+        settings,
+        "STRIPE_PRO_PRICE_ID",
+        "",
+    ).strip()
 
     if not price_id:
         messages.error(
             request,
             "STRIPE_PRO_PRICE_ID is not configured.",
         )
-
-        return redirect(
-            "pricing"
-        )
+        return redirect("pricing")
 
     if not price_id.startswith("price_"):
         messages.error(
             request,
             "STRIPE_PRO_PRICE_ID must start with price_.",
         )
-
-        return redirect(
-            "pricing"
-        )
+        return redirect("pricing")
 
     try:
         configure_stripe()
 
         success_url = request.build_absolute_uri(
-            reverse(
-                "subscription_success"
-            )
+            reverse("subscription_success")
         )
 
         cancel_url = request.build_absolute_uri(
-            reverse(
-                "subscription_cancel"
-            )
+            reverse("subscription_cancel")
         )
 
         checkout_data = {
@@ -146,19 +184,20 @@ def create_checkout_session(request):
             checkout_data["customer"] = (
                 subscription.stripe_customer_id
             )
-        else:
+        elif request.user.email:
             checkout_data["customer_email"] = (
                 request.user.email
             )
 
-        checkout_session = stripe.checkout.Session.create(
-            **checkout_data
+        checkout_session = (
+            stripe.checkout.Session.create(
+                **checkout_data
+            )
         )
 
         if not checkout_session.url:
             raise ValueError(
-                "Stripe created a Checkout Session "
-                "but did not return a checkout URL."
+                "Stripe did not return a Checkout URL."
             )
 
         subscription.stripe_checkout_session_id = (
@@ -176,31 +215,28 @@ def create_checkout_session(request):
             checkout_session.url
         )
 
-    except stripe.error.AuthenticationError as exc:
+    except stripe.AuthenticationError as exc:
         logger.exception(
             "Stripe authentication failed."
         )
-
         messages.error(
             request,
             f"Stripe authentication failed: {exc}",
         )
 
-    except stripe.error.InvalidRequestError as exc:
+    except stripe.InvalidRequestError as exc:
         logger.exception(
-            "Stripe rejected the checkout request."
+            "Stripe rejected the Checkout request."
         )
-
         messages.error(
             request,
             f"Stripe request error: {exc}",
         )
 
-    except stripe.error.StripeError as exc:
+    except stripe.StripeError as exc:
         logger.exception(
-            "Stripe checkout failed."
+            "Stripe Checkout failed."
         )
-
         messages.error(
             request,
             f"Stripe error: {exc}",
@@ -208,20 +244,16 @@ def create_checkout_session(request):
 
     except Exception as exc:
         logger.exception(
-            "Stripe checkout session creation failed."
+            "Checkout Session creation failed."
         )
-
         messages.error(
             request,
             f"Checkout error: {exc}",
         )
 
-    return redirect(
-        "pricing"
-    )
+    return redirect("pricing")
 
 
-@login_required
 @login_required
 def stripe_checkout_success(request):
     session_id = request.GET.get(
@@ -232,23 +264,22 @@ def stripe_checkout_success(request):
     if not session_id:
         messages.warning(
             request,
-            "Payment succeeded, but the Checkout Session ID "
-            "was not returned. Your subscription will be updated "
-            "when the Stripe webhook arrives.",
+            "Payment succeeded, but the Checkout Session "
+            "ID was not returned. The webhook will update "
+            "your subscription.",
         )
-
-        return redirect(
-            "dashboard"
-        )
+        return redirect("dashboard")
 
     try:
         configure_stripe()
 
-        checkout_session = stripe.checkout.Session.retrieve(
-            session_id,
-            expand=[
-                "subscription",
-            ],
+        checkout_session = (
+            stripe.checkout.Session.retrieve(
+                session_id,
+                expand=[
+                    "subscription",
+                ],
+            )
         )
 
         session_user_id = str(
@@ -261,33 +292,37 @@ def stripe_checkout_success(request):
             )
         )
 
-        if session_user_id != str(request.user.pk):
+        if session_user_id != str(
+            request.user.pk
+        ):
             logger.warning(
-                "Stripe Checkout Session %s does not belong to user %s.",
+                "Checkout Session %s does not belong "
+                "to user %s.",
                 session_id,
                 request.user.pk,
             )
 
             messages.error(
                 request,
-                "This payment session does not belong to your account.",
+                "This payment session does not belong "
+                "to your account.",
             )
-
-            return redirect(
-                "pricing"
-            )
+            return redirect("pricing")
 
         payment_status = checkout_session.get(
             "payment_status",
             "",
         )
 
-        stripe_subscription = checkout_session.get(
-            "subscription"
+        stripe_subscription = (
+            checkout_session.get(
+                "subscription"
+            )
         )
 
         if (
-            payment_status in {
+            payment_status
+            in {
                 "paid",
                 "no_payment_required",
             }
@@ -336,25 +371,27 @@ def stripe_checkout_success(request):
 
             messages.success(
                 request,
-                "Payment completed. Your Pro subscription is active.",
+                "Payment completed. Your Pro "
+                "subscription is active.",
             )
 
         else:
             messages.info(
                 request,
-                "Stripe is still processing your subscription. "
-                "The account will be updated by the webhook.",
+                "Stripe is still processing your "
+                "subscription. The webhook will update it.",
             )
 
-    except stripe.error.StripeError:
+    except stripe.StripeError:
         logger.exception(
-            "Could not verify the successful Stripe Checkout Session."
+            "Could not verify the successful "
+            "Stripe Checkout Session."
         )
 
         messages.warning(
             request,
-            "Payment was completed, but the subscription could not "
-            "be verified immediately. The Stripe webhook will retry it.",
+            "Payment was completed, but the subscription "
+            "could not be verified immediately.",
         )
 
     except Exception:
@@ -364,26 +401,21 @@ def stripe_checkout_success(request):
 
         messages.warning(
             request,
-            "Payment was completed, but subscription verification "
-            "is still pending.",
+            "Payment was completed, but subscription "
+            "verification is still pending.",
         )
 
-    return redirect(
-        "dashboard"
-    )
+    return redirect("dashboard")
 
 
 @login_required
 def stripe_checkout_cancel(request):
     messages.info(
         request,
-        "Payment was cancelled. "
-        "Your plan has not changed.",
+        "Payment was cancelled. Your plan has not changed.",
     )
 
-    return redirect(
-        "pricing"
-    )
+    return redirect("pricing")
 
 
 @login_required
@@ -398,18 +430,13 @@ def subscription_portal(request):
             request,
             "No Stripe billing account was found.",
         )
-
-        return redirect(
-            "pricing"
-        )
+        return redirect("pricing")
 
     try:
         configure_stripe()
 
         return_url = request.build_absolute_uri(
-            reverse(
-                "pricing"
-            )
+            reverse("pricing")
         )
 
         portal_session = (
@@ -425,7 +452,7 @@ def subscription_portal(request):
             portal_session.url
         )
 
-    except stripe.error.StripeError as exc:
+    except stripe.StripeError as exc:
         logger.exception(
             "Stripe billing portal creation failed."
         )
@@ -445,9 +472,7 @@ def subscription_portal(request):
             f"Billing portal error: {exc}",
         )
 
-    return redirect(
-        "pricing"
-    )
+    return redirect("pricing")
 
 
 def activate_pro_subscription(
@@ -474,6 +499,8 @@ def activate_pro_subscription(
         )
     )
 
+    user = None
+
     if user_id:
         try:
             user = User.objects.get(
@@ -481,39 +508,30 @@ def activate_pro_subscription(
             )
         except User.DoesNotExist:
             logger.warning(
-                "Stripe subscription user does not exist: %s",
+                "Stripe subscription user does "
+                "not exist: %s",
                 user_id,
             )
-
             return
 
     elif customer_id:
-        subscription = (
+        existing_subscription = (
             Subscription.objects.filter(
                 stripe_customer_id=customer_id,
             )
-            .select_related(
-                "user"
-            )
+            .select_related("user")
             .first()
         )
 
-        if subscription is None:
-            logger.warning(
-                "No user found for Stripe customer %s.",
-                customer_id,
-            )
+        if existing_subscription:
+            user = existing_subscription.user
 
-            return
-
-        user = subscription.user
-
-    else:
+    if user is None:
         logger.warning(
-            "Stripe subscription has no user metadata "
-            "or customer ID."
+            "Could not match Stripe subscription %s "
+            "to a local user.",
+            stripe_subscription_id,
         )
-
         return
 
     subscription = get_user_subscription(
@@ -531,22 +549,39 @@ def activate_pro_subscription(
     }
 
     if stripe_status in active_statuses:
-        local_status = Subscription.STATUS_ACTIVE
-        local_plan = Subscription.PLAN_PRO
+        subscription.status = (
+            Subscription.STATUS_ACTIVE
+        )
+        subscription.plan = (
+            Subscription.PLAN_PRO
+        )
     else:
-        local_status = Subscription.STATUS_EXPIRED
-        local_plan = Subscription.PLAN_FREE
+        subscription.status = (
+            Subscription.STATUS_EXPIRED
+        )
+        subscription.plan = (
+            Subscription.PLAN_FREE
+        )
 
-    subscription.plan = local_plan
-    subscription.status = local_status
-    subscription.stripe_customer_id = customer_id
+    period_end = get_subscription_period_end(
+        stripe_subscription
+    )
+
+    subscription.stripe_customer_id = (
+        customer_id
+        or subscription.stripe_customer_id
+    )
+
     subscription.stripe_subscription_id = (
         stripe_subscription_id
+        or subscription.stripe_subscription_id
     )
+
     subscription.started_at = timezone.now()
-    subscription.expires_at = timestamp_to_datetime(
-        stripe_subscription.get(
-            "current_period_end"
+
+    subscription.expires_at = (
+        timestamp_to_datetime(
+            period_end
         )
     )
 
@@ -599,11 +634,16 @@ def deactivate_pro_subscription(
             "Stripe subscription %s.",
             stripe_subscription_id,
         )
-
         return
 
-    subscription.plan = Subscription.PLAN_FREE
-    subscription.status = Subscription.STATUS_CANCELLED
+    subscription.plan = (
+        Subscription.PLAN_FREE
+    )
+
+    subscription.status = (
+        Subscription.STATUS_CANCELLED
+    )
+
     subscription.expires_at = timezone.now()
 
     subscription.save(
@@ -619,15 +659,16 @@ def deactivate_pro_subscription(
 @csrf_exempt
 @require_POST
 def stripe_webhook(request):
-    webhook_secret = (
-        settings.STRIPE_WEBHOOK_SECRET.strip()
-    )
+    webhook_secret = getattr(
+        settings,
+        "STRIPE_WEBHOOK_SECRET",
+        "",
+    ).strip()
 
     if not webhook_secret:
         logger.error(
             "STRIPE_WEBHOOK_SECRET is not configured."
         )
-
         return HttpResponse(
             "Webhook secret is not configured.",
             status=500,
@@ -637,7 +678,6 @@ def stripe_webhook(request):
         logger.error(
             "STRIPE_WEBHOOK_SECRET has an invalid format."
         )
-
         return HttpResponse(
             "Webhook secret must start with whsec_.",
             status=500,
@@ -651,17 +691,11 @@ def stripe_webhook(request):
     )
 
     if not signature:
-        logger.warning(
-            "Stripe webhook request has no signature header."
-        )
-
         return HttpResponseBadRequest(
             "Missing Stripe signature."
         )
 
     try:
-        configure_stripe()
-
         event = stripe.Webhook.construct_event(
             payload=payload,
             sig_header=signature,
@@ -672,29 +706,16 @@ def stripe_webhook(request):
         logger.warning(
             "Stripe webhook contained an invalid payload."
         )
-
         return HttpResponseBadRequest(
             "Invalid Stripe payload."
         )
 
-    except stripe.error.SignatureVerificationError:
+    except stripe.SignatureVerificationError:
         logger.warning(
             "Stripe webhook signature verification failed."
         )
-
         return HttpResponseBadRequest(
             "Invalid Stripe signature."
-        )
-
-    except ValueError as exc:
-        logger.exception(
-            "Stripe configuration error: %s",
-            exc,
-        )
-
-        return HttpResponse(
-            "Stripe is not configured correctly.",
-            status=500,
         )
 
     event_id = event.get(
@@ -707,14 +728,12 @@ def stripe_webhook(request):
         "",
     )
 
-    event_object = (
-        event.get(
-            "data",
-            {},
-        ).get(
-            "object",
-            {},
-        )
+    event_object = event.get(
+        "data",
+        {},
+    ).get(
+        "object",
+        {},
     )
 
     logger.info(
@@ -724,108 +743,12 @@ def stripe_webhook(request):
     )
 
     try:
+        configure_stripe()
+
         if event_type == "checkout.session.completed":
-            payment_status = event_object.get(
-                "payment_status",
-                "",
+            process_checkout_completed(
+                event_object
             )
-
-            session_mode = event_object.get(
-                "mode",
-                "",
-            )
-
-            user_id = (
-                event_object.get(
-                    "metadata",
-                    {},
-                ).get(
-                    "user_id"
-                )
-            )
-
-            if not user_id:
-                logger.warning(
-                    "Checkout Session %s has no user_id metadata.",
-                    event_object.get(
-                        "id",
-                        "",
-                    ),
-                )
-
-                return HttpResponse(
-                    status=200
-                )
-
-            subscription = (
-                Subscription.objects.filter(
-                    user_id=user_id,
-                ).first()
-            )
-
-            if not subscription:
-                logger.warning(
-                    "No local subscription was found for user %s.",
-                    user_id,
-                )
-
-                return HttpResponse(
-                    status=200
-                )
-
-            subscription.stripe_customer_id = (
-                event_object.get(
-                    "customer",
-                    "",
-                )
-                or subscription.stripe_customer_id
-            )
-
-            stripe_subscription_id = (
-                event_object.get(
-                    "subscription",
-                    "",
-                )
-            )
-
-            if stripe_subscription_id:
-                subscription.stripe_subscription_id = (
-                    stripe_subscription_id
-                )
-
-            subscription.stripe_checkout_session_id = (
-                event_object.get(
-                    "id",
-                    "",
-                )
-            )
-
-            subscription.save(
-                update_fields=[
-                    "stripe_customer_id",
-                    "stripe_subscription_id",
-                    "stripe_checkout_session_id",
-                    "updated_at",
-                ]
-            )
-
-            if (
-                session_mode == "subscription"
-                and stripe_subscription_id
-                and payment_status in {
-                    "paid",
-                    "no_payment_required",
-                }
-            ):
-                stripe_subscription = (
-                    stripe.Subscription.retrieve(
-                        stripe_subscription_id
-                    )
-                )
-
-                activate_pro_subscription(
-                    stripe_subscription
-                )
 
         elif event_type in {
             "customer.subscription.created",
@@ -835,68 +758,38 @@ def stripe_webhook(request):
                 event_object
             )
 
-        elif event_type == "customer.subscription.deleted":
+        elif event_type == (
+            "customer.subscription.deleted"
+        ):
             deactivate_pro_subscription(
                 event_object
             )
 
-        elif event_type == "invoice.payment_succeeded":
-            stripe_subscription_id = (
-                event_object.get(
-                    "subscription",
-                    "",
-                )
+        elif event_type in {
+            "invoice.paid",
+            "invoice.payment_succeeded",
+        }:
+            process_paid_invoice(
+                event_object
             )
 
-            if stripe_subscription_id:
-                stripe_subscription = (
-                    stripe.Subscription.retrieve(
-                        stripe_subscription_id
-                    )
-                )
-
-                activate_pro_subscription(
-                    stripe_subscription
-                )
-
-        elif event_type == "invoice.payment_failed":
-            stripe_subscription_id = (
-                event_object.get(
-                    "subscription",
-                    "",
-                )
+        elif event_type == (
+            "invoice.payment_failed"
+        ):
+            process_failed_invoice(
+                event_object
             )
-
-            if stripe_subscription_id:
-                subscription = (
-                    Subscription.objects.filter(
-                        stripe_subscription_id=(
-                            stripe_subscription_id
-                        ),
-                    ).first()
-                )
-
-                if subscription:
-                    subscription.status = (
-                        Subscription.STATUS_PAST_DUE
-                    )
-
-                    subscription.save(
-                        update_fields=[
-                            "status",
-                            "updated_at",
-                        ]
-                    )
 
         else:
             logger.info(
-                "Ignoring unsupported Stripe event type %s.",
+                "Ignoring unsupported Stripe event: %s",
                 event_type,
             )
 
-    except stripe.error.StripeError:
+    except stripe.StripeError:
         logger.exception(
-            "Stripe API error while processing webhook %s.",
+            "Stripe API error while processing "
+            "webhook %s.",
             event_id,
         )
 
@@ -907,8 +800,8 @@ def stripe_webhook(request):
 
     except Exception:
         logger.exception(
-            "Stripe webhook processing failed for event %s "
-            "of type %s.",
+            "Stripe webhook processing failed for "
+            "event %s of type %s.",
             event_id,
             event_type,
         )
@@ -918,6 +811,198 @@ def stripe_webhook(request):
             status=500,
         )
 
-    return HttpResponse(
-        status=200
+    return HttpResponse(status=200)
+
+
+def process_checkout_completed(
+    checkout_session,
+):
+    user_id = checkout_session.get(
+        "metadata",
+        {},
+    ).get(
+        "user_id"
     )
+
+    if not user_id:
+        user_id = checkout_session.get(
+            "client_reference_id"
+        )
+
+    if not user_id:
+        logger.warning(
+            "Checkout Session %s has no user ID.",
+            checkout_session.get(
+                "id",
+                "",
+            ),
+        )
+        return
+
+    subscription = (
+        Subscription.objects.filter(
+            user_id=user_id,
+        ).first()
+    )
+
+    if subscription is None:
+        logger.warning(
+            "No local subscription was found "
+            "for user %s.",
+            user_id,
+        )
+        return
+
+    customer_id = checkout_session.get(
+        "customer",
+        "",
+    )
+
+    stripe_subscription_id = (
+        checkout_session.get(
+            "subscription",
+            "",
+        )
+    )
+
+    subscription.stripe_customer_id = (
+        customer_id
+        or subscription.stripe_customer_id
+    )
+
+    subscription.stripe_subscription_id = (
+        stripe_subscription_id
+        or subscription.stripe_subscription_id
+    )
+
+    subscription.stripe_checkout_session_id = (
+        checkout_session.get(
+            "id",
+            "",
+        )
+    )
+
+    subscription.save(
+        update_fields=[
+            "stripe_customer_id",
+            "stripe_subscription_id",
+            "stripe_checkout_session_id",
+            "updated_at",
+        ]
+    )
+
+    payment_status = checkout_session.get(
+        "payment_status",
+        "",
+    )
+
+    if (
+        checkout_session.get("mode")
+        == "subscription"
+        and stripe_subscription_id
+        and payment_status
+        in {
+            "paid",
+            "no_payment_required",
+        }
+    ):
+        stripe_subscription = (
+            stripe.Subscription.retrieve(
+                stripe_subscription_id
+            )
+        )
+
+        activate_pro_subscription(
+            stripe_subscription
+        )
+
+
+def get_invoice_subscription_id(invoice):
+    subscription_id = invoice.get(
+        "subscription"
+    )
+
+    if subscription_id:
+        return subscription_id
+
+    parent = invoice.get(
+        "parent",
+        {},
+    )
+
+    if hasattr(parent, "get"):
+        subscription_details = parent.get(
+            "subscription_details",
+            {},
+        )
+
+        if hasattr(
+            subscription_details,
+            "get",
+        ):
+            subscription_id = (
+                subscription_details.get(
+                    "subscription"
+                )
+            )
+
+    return subscription_id
+
+
+def process_paid_invoice(invoice):
+    stripe_subscription_id = (
+        get_invoice_subscription_id(
+            invoice
+        )
+    )
+
+    if not stripe_subscription_id:
+        logger.info(
+            "Paid invoice %s has no subscription ID.",
+            invoice.get(
+                "id",
+                "",
+            ),
+        )
+        return
+
+    stripe_subscription = (
+        stripe.Subscription.retrieve(
+            stripe_subscription_id
+        )
+    )
+
+    activate_pro_subscription(
+        stripe_subscription
+    )
+
+
+def process_failed_invoice(invoice):
+    stripe_subscription_id = (
+        get_invoice_subscription_id(
+            invoice
+        )
+    )
+
+    if not stripe_subscription_id:
+        return
+
+    subscription = (
+        Subscription.objects.filter(
+            stripe_subscription_id=(
+                stripe_subscription_id
+            ),
+        ).first()
+    )
+
+    if subscription:
+        subscription.status = (
+            Subscription.STATUS_PAST_DUE
+        )
+
+        subscription.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ]
+        )
