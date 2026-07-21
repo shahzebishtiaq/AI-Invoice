@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from stripe._stripe_object import StripeObject
 
 from accounts.models import User
 
@@ -24,29 +25,25 @@ logger = logging.getLogger(__name__)
 
 def stripe_to_dict(value):
     """
-    Convert real Stripe objects to normal Python dictionaries.
+    Recursively convert Stripe objects into normal
+    Python dictionaries and lists.
 
-    MagicMock objects used by Django tests are not converted.
+    MagicMock objects used by tests are left unchanged.
     """
+    if isinstance(value, StripeObject):
+        value = value._data
+
     if isinstance(value, dict):
-        return value
+        return {
+            key: stripe_to_dict(item)
+            for key, item in value.items()
+        }
 
-    value_type = type(value)
-    module_name = getattr(
-        value_type,
-        "__module__",
-        "",
-    )
-
-    if module_name.startswith("stripe"):
-        converter = getattr(
-            value,
-            "to_dict_recursive",
-            None,
-        )
-
-        if callable(converter):
-            return converter()
+    if isinstance(value, (list, tuple)):
+        return [
+            stripe_to_dict(item)
+            for item in value
+        ]
 
     return value
 
@@ -85,6 +82,7 @@ def timestamp_to_datetime(timestamp):
             int(timestamp),
             tz=datetime_timezone.utc,
         )
+
     except (
         TypeError,
         ValueError,
@@ -111,37 +109,195 @@ def get_subscription_period_end(
     if period_end:
         return period_end
 
-    items = stripe_subscription.get(
-        "items",
-        {},
+    items = stripe_to_dict(
+        stripe_subscription.get(
+            "items",
+            {},
+        )
     )
 
-    items = stripe_to_dict(items)
+    if not isinstance(items, dict):
+        return None
 
-    if isinstance(items, dict):
-        item_data = items.get(
-            "data",
-            [],
-        )
-    else:
-        item_data = []
+    item_data = items.get(
+        "data",
+        [],
+    )
 
-    if item_data:
-        first_item = stripe_to_dict(
-            item_data[0]
-        )
+    if not item_data:
+        return None
 
-        if isinstance(first_item, dict):
-            return first_item.get(
-                "current_period_end"
-            )
+    first_item = stripe_to_dict(
+        item_data[0]
+    )
 
-    return None
+    if not isinstance(first_item, dict):
+        return None
+
+    return first_item.get(
+        "current_period_end"
+    )
 
 
 @login_required
 @require_POST
+def create_checkout_session(request):
+    subscription = get_user_subscription(
+        request.user
+    )
 
+    if (
+        subscription.plan == Subscription.PLAN_PRO
+        and subscription.is_active
+    ):
+        messages.info(
+            request,
+            "You already have an active Pro subscription.",
+        )
+        return redirect("pricing")
+
+    price_id = getattr(
+        settings,
+        "STRIPE_PRO_PRICE_ID",
+        "",
+    ).strip()
+
+    if not price_id:
+        messages.error(
+            request,
+            "STRIPE_PRO_PRICE_ID is not configured.",
+        )
+        return redirect("pricing")
+
+    if not price_id.startswith("price_"):
+        messages.error(
+            request,
+            "STRIPE_PRO_PRICE_ID must start with price_.",
+        )
+        return redirect("pricing")
+
+    try:
+        configure_stripe()
+
+        success_url = request.build_absolute_uri(
+            reverse("subscription_success")
+        )
+
+        cancel_url = request.build_absolute_uri(
+            reverse("subscription_cancel")
+        )
+
+        checkout_data = {
+            "mode": "subscription",
+            "line_items": [
+                {
+                    "price": price_id,
+                    "quantity": 1,
+                }
+            ],
+            "success_url": (
+                success_url
+                + "?session_id={CHECKOUT_SESSION_ID}"
+            ),
+            "cancel_url": cancel_url,
+            "client_reference_id": str(
+                request.user.pk
+            ),
+            "metadata": {
+                "user_id": str(
+                    request.user.pk
+                ),
+            },
+            "subscription_data": {
+                "metadata": {
+                    "user_id": str(
+                        request.user.pk
+                    ),
+                },
+            },
+            "allow_promotion_codes": True,
+        }
+
+        if subscription.stripe_customer_id:
+            checkout_data["customer"] = (
+                subscription.stripe_customer_id
+            )
+
+        elif request.user.email:
+            checkout_data["customer_email"] = (
+                request.user.email
+            )
+
+        checkout_session = (
+            stripe.checkout.Session.create(
+                **checkout_data
+            )
+        )
+
+        # Attribute access works with StripeObject and
+        # the MagicMock used by the existing tests.
+        checkout_url = checkout_session.url
+        checkout_session_id = checkout_session.id
+
+        if not checkout_url:
+            raise ValueError(
+                "Stripe did not return a Checkout URL."
+            )
+
+        subscription.stripe_checkout_session_id = (
+            checkout_session_id
+        )
+
+        subscription.save(
+            update_fields=[
+                "stripe_checkout_session_id",
+                "updated_at",
+            ]
+        )
+
+        return redirect(checkout_url)
+
+    except stripe.AuthenticationError as exc:
+        logger.exception(
+            "Stripe authentication failed."
+        )
+
+        messages.error(
+            request,
+            f"Stripe authentication failed: {exc}",
+        )
+
+    except stripe.InvalidRequestError as exc:
+        logger.exception(
+            "Stripe rejected the Checkout request."
+        )
+
+        messages.error(
+            request,
+            f"Stripe request error: {exc}",
+        )
+
+    except stripe.StripeError as exc:
+        logger.exception(
+            "Stripe Checkout failed."
+        )
+
+        messages.error(
+            request,
+            f"Stripe error: {exc}",
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Checkout Session creation failed."
+        )
+
+        messages.error(
+            request,
+            f"Checkout error: {exc}",
+        )
+
+    return redirect("pricing")
 
 
 @login_required
@@ -176,6 +332,15 @@ def stripe_checkout_success(request):
             checkout_session
         )
 
+        if not isinstance(
+            checkout_session,
+            dict,
+        ):
+            raise TypeError(
+                "Stripe Checkout Session could not "
+                "be converted to a dictionary."
+            )
+
         metadata = stripe_to_dict(
             checkout_session.get(
                 "metadata",
@@ -208,6 +373,7 @@ def stripe_checkout_success(request):
                 "This payment session does not belong "
                 "to your account.",
             )
+
             return redirect("pricing")
 
         payment_status = checkout_session.get(
@@ -354,13 +520,7 @@ def subscription_portal(request):
             )
         )
 
-        portal_session = stripe_to_dict(
-            portal_session
-        )
-
-        portal_url = portal_session.get(
-            "url"
-        )
+        portal_url = portal_session.url
 
         if not portal_url:
             raise ValueError(
@@ -399,6 +559,15 @@ def activate_pro_subscription(
         stripe_subscription
     )
 
+    if not isinstance(
+        stripe_subscription,
+        dict,
+    ):
+        raise TypeError(
+            "Stripe subscription could not be "
+            "converted to a dictionary."
+        )
+
     metadata = stripe_to_dict(
         stripe_subscription.get(
             "metadata",
@@ -432,6 +601,7 @@ def activate_pro_subscription(
             user = User.objects.get(
                 pk=user_id
             )
+
         except User.DoesNotExist:
             logger.warning(
                 "Stripe subscription user does "
@@ -469,22 +639,23 @@ def activate_pro_subscription(
         "",
     )
 
-    active_statuses = {
+    if stripe_status in {
         "active",
         "trialing",
-    }
-
-    if stripe_status in active_statuses:
+    }:
         subscription.status = (
             Subscription.STATUS_ACTIVE
         )
+
         subscription.plan = (
             Subscription.PLAN_PRO
         )
+
     else:
         subscription.status = (
             Subscription.STATUS_EXPIRED
         )
+
         subscription.plan = (
             Subscription.PLAN_FREE
         )
@@ -530,6 +701,15 @@ def deactivate_pro_subscription(
     stripe_subscription = stripe_to_dict(
         stripe_subscription
     )
+
+    if not isinstance(
+        stripe_subscription,
+        dict,
+    ):
+        raise TypeError(
+            "Stripe subscription could not be "
+            "converted to a dictionary."
+        )
 
     stripe_subscription_id = (
         stripe_subscription.get(
@@ -637,6 +817,12 @@ def stripe_webhook(request):
         event = stripe_to_dict(
             event
         )
+
+        if not isinstance(event, dict):
+            raise ValueError(
+                "Stripe event could not be converted "
+                "to a dictionary."
+            )
 
     except ValueError:
         logger.warning(
@@ -760,7 +946,10 @@ def stripe_webhook(request):
             status=500,
         )
 
-    return HttpResponse(status=200)
+    return HttpResponse(
+        "Webhook received.",
+        status=200,
+    )
 
 
 def process_checkout_completed(
@@ -769,6 +958,15 @@ def process_checkout_completed(
     checkout_session = stripe_to_dict(
         checkout_session
     )
+
+    if not isinstance(
+        checkout_session,
+        dict,
+    ):
+        raise TypeError(
+            "Checkout Session could not be converted "
+            "to a dictionary."
+        )
 
     metadata = stripe_to_dict(
         checkout_session.get(
@@ -818,12 +1016,28 @@ def process_checkout_completed(
         "",
     )
 
-    stripe_subscription_id = (
+    stripe_subscription_value = (
         checkout_session.get(
             "subscription",
             "",
         )
     )
+
+    if isinstance(
+        stripe_subscription_value,
+        dict,
+    ):
+        stripe_subscription_id = (
+            stripe_subscription_value.get(
+                "id",
+                "",
+            )
+        )
+
+    else:
+        stripe_subscription_id = (
+            stripe_subscription_value
+        )
 
     subscription.stripe_customer_id = (
         customer_id
@@ -857,20 +1071,31 @@ def process_checkout_completed(
     )
 
     if (
-        checkout_session.get("mode")
+        checkout_session.get(
+            "mode"
+        )
         == "subscription"
-        and stripe_subscription_id
+        and stripe_subscription_value
         and payment_status
         in {
             "paid",
             "no_payment_required",
         }
     ):
-        stripe_subscription = (
-            stripe.Subscription.retrieve(
-                stripe_subscription_id
+        if isinstance(
+            stripe_subscription_value,
+            dict,
+        ):
+            stripe_subscription = (
+                stripe_subscription_value
             )
-        )
+
+        else:
+            stripe_subscription = (
+                stripe.Subscription.retrieve(
+                    stripe_subscription_value
+                )
+            )
 
         stripe_subscription = stripe_to_dict(
             stripe_subscription
@@ -886,9 +1111,27 @@ def get_invoice_subscription_id(invoice):
         invoice
     )
 
-    subscription_id = invoice.get(
+    if not isinstance(invoice, dict):
+        return None
+
+    subscription_value = invoice.get(
         "subscription"
     )
+
+    if isinstance(
+        subscription_value,
+        dict,
+    ):
+        subscription_id = (
+            subscription_value.get(
+                "id"
+            )
+        )
+
+    else:
+        subscription_id = (
+            subscription_value
+        )
 
     if subscription_id:
         return subscription_id
@@ -900,23 +1143,37 @@ def get_invoice_subscription_id(invoice):
         )
     )
 
-    if isinstance(parent, dict):
-        subscription_details = stripe_to_dict(
-            parent.get(
-                "subscription_details",
-                {},
-            )
+    if not isinstance(parent, dict):
+        return None
+
+    subscription_details = stripe_to_dict(
+        parent.get(
+            "subscription_details",
+            {},
+        )
+    )
+
+    if not isinstance(
+        subscription_details,
+        dict,
+    ):
+        return None
+
+    parent_subscription = (
+        subscription_details.get(
+            "subscription"
+        )
+    )
+
+    if isinstance(
+        parent_subscription,
+        dict,
+    ):
+        return parent_subscription.get(
+            "id"
         )
 
-        if isinstance(
-            subscription_details,
-            dict,
-        ):
-            return subscription_details.get(
-                "subscription"
-            )
-
-    return None
+    return parent_subscription
 
 
 def process_paid_invoice(invoice):
@@ -931,12 +1188,17 @@ def process_paid_invoice(invoice):
     )
 
     if not stripe_subscription_id:
-        logger.info(
-            "Paid invoice %s has no subscription ID.",
-            invoice.get(
+        invoice_id = ""
+
+        if isinstance(invoice, dict):
+            invoice_id = invoice.get(
                 "id",
                 "",
-            ),
+            )
+
+        logger.info(
+            "Paid invoice %s has no subscription ID.",
+            invoice_id,
         )
         return
 
