@@ -29,6 +29,18 @@ ALLOWED_HOSTS = [
     ).split(",")
     if host.strip()
 ]
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        (
+            "https://ai-invoice-k6lp.onrender.com,"
+            "https://youraiinvoice.com,"
+            "https://www.youraiinvoice.com"
+        ),
+    ).split(",")
+    if origin.strip()
+]
 
 
 # ---------------------------------------------------------
