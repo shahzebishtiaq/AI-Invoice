@@ -22,6 +22,28 @@ from .services import get_user_subscription
 logger = logging.getLogger(__name__)
 
 
+def stripe_to_dict(value):
+    """
+    Convert real Stripe objects into normal dictionaries.
+
+    unittest.mock.MagicMock objects are left unchanged so
+    the existing Django tests continue to work.
+    """
+    if isinstance(value, dict):
+        return value
+
+    converter = getattr(
+        type(value),
+        "to_dict_recursive",
+        None,
+    )
+
+    if callable(converter):
+        return value.to_dict_recursive()
+
+    return value
+
+
 def configure_stripe():
     secret_key = getattr(
         settings,
@@ -56,7 +78,11 @@ def timestamp_to_datetime(timestamp):
             int(timestamp),
             tz=datetime_timezone.utc,
         )
-    except (TypeError, ValueError, OverflowError):
+    except (
+        TypeError,
+        ValueError,
+        OverflowError,
+    ):
         logger.warning(
             "Invalid Stripe timestamp received: %r",
             timestamp,
@@ -64,11 +90,12 @@ def timestamp_to_datetime(timestamp):
         return None
 
 
-def get_subscription_period_end(stripe_subscription):
-    """
-    Stripe API versions may put current_period_end either
-    on the subscription or on the subscription item.
-    """
+def get_subscription_period_end(
+    stripe_subscription,
+):
+    stripe_subscription = stripe_to_dict(
+        stripe_subscription
+    )
 
     period_end = stripe_subscription.get(
         "current_period_end"
@@ -82,7 +109,9 @@ def get_subscription_period_end(stripe_subscription):
         {},
     )
 
-    if hasattr(items, "get"):
+    items = stripe_to_dict(items)
+
+    if isinstance(items, dict):
         item_data = items.get(
             "data",
             [],
@@ -91,9 +120,11 @@ def get_subscription_period_end(stripe_subscription):
         item_data = []
 
     if item_data:
-        first_item = item_data[0]
+        first_item = stripe_to_dict(
+            item_data[0]
+        )
 
-        if hasattr(first_item, "get"):
+        if isinstance(first_item, dict):
             return first_item.get(
                 "current_period_end"
             )
@@ -101,6 +132,8 @@ def get_subscription_period_end(stripe_subscription):
     return None
 
 
+@login_required
+@require_POST
 @login_required
 @require_POST
 def create_checkout_session(request):
@@ -184,6 +217,7 @@ def create_checkout_session(request):
             checkout_data["customer"] = (
                 subscription.stripe_customer_id
             )
+
         elif request.user.email:
             checkout_data["customer_email"] = (
                 request.user.email
@@ -195,13 +229,18 @@ def create_checkout_session(request):
             )
         )
 
-        if not checkout_session.url:
+        # Attributes work for both real Stripe objects
+        # and the MagicMock used by the Django test.
+        checkout_url = checkout_session.url
+        checkout_session_id = checkout_session.id
+
+        if not checkout_url:
             raise ValueError(
                 "Stripe did not return a Checkout URL."
             )
 
         subscription.stripe_checkout_session_id = (
-            checkout_session.id
+            checkout_session_id
         )
 
         subscription.save(
@@ -211,14 +250,13 @@ def create_checkout_session(request):
             ]
         )
 
-        return redirect(
-            checkout_session.url
-        )
+        return redirect(checkout_url)
 
     except stripe.AuthenticationError as exc:
         logger.exception(
             "Stripe authentication failed."
         )
+
         messages.error(
             request,
             f"Stripe authentication failed: {exc}",
@@ -228,6 +266,7 @@ def create_checkout_session(request):
         logger.exception(
             "Stripe rejected the Checkout request."
         )
+
         messages.error(
             request,
             f"Stripe request error: {exc}",
@@ -237,6 +276,7 @@ def create_checkout_session(request):
         logger.exception(
             "Stripe Checkout failed."
         )
+
         messages.error(
             request,
             f"Stripe error: {exc}",
@@ -246,6 +286,7 @@ def create_checkout_session(request):
         logger.exception(
             "Checkout Session creation failed."
         )
+
         messages.error(
             request,
             f"Checkout error: {exc}",
@@ -282,11 +323,22 @@ def stripe_checkout_success(request):
             )
         )
 
-        session_user_id = str(
+        checkout_session = stripe_to_dict(
+            checkout_session
+        )
+
+        metadata = stripe_to_dict(
             checkout_session.get(
                 "metadata",
                 {},
-            ).get(
+            )
+        )
+
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        session_user_id = str(
+            metadata.get(
                 "user_id",
                 "",
             )
@@ -337,6 +389,10 @@ def stripe_checkout_success(request):
                         stripe_subscription
                     )
                 )
+
+            stripe_subscription = stripe_to_dict(
+                stripe_subscription
+            )
 
             activate_pro_subscription(
                 stripe_subscription
@@ -390,8 +446,8 @@ def stripe_checkout_success(request):
 
         messages.warning(
             request,
-            "Payment was completed, but the subscription "
-            "could not be verified immediately.",
+            "Payment completed, but Stripe verification "
+            "failed temporarily.",
         )
 
     except Exception:
@@ -412,7 +468,8 @@ def stripe_checkout_success(request):
 def stripe_checkout_cancel(request):
     messages.info(
         request,
-        "Payment was cancelled. Your plan has not changed.",
+        "Payment was cancelled. "
+        "Your plan has not changed.",
     )
 
     return redirect("pricing")
@@ -448,9 +505,20 @@ def subscription_portal(request):
             )
         )
 
-        return redirect(
-            portal_session.url
+        portal_session = stripe_to_dict(
+            portal_session
         )
+
+        portal_url = portal_session.get(
+            "url"
+        )
+
+        if not portal_url:
+            raise ValueError(
+                "Stripe did not return a billing portal URL."
+            )
+
+        return redirect(portal_url)
 
     except stripe.StripeError as exc:
         logger.exception(
@@ -478,10 +546,19 @@ def subscription_portal(request):
 def activate_pro_subscription(
     stripe_subscription,
 ):
-    metadata = stripe_subscription.get(
-        "metadata",
-        {},
+    stripe_subscription = stripe_to_dict(
+        stripe_subscription
     )
+
+    metadata = stripe_to_dict(
+        stripe_subscription.get(
+            "metadata",
+            {},
+        )
+    )
+
+    if not isinstance(metadata, dict):
+        metadata = {}
 
     user_id = metadata.get(
         "user_id"
@@ -601,6 +678,10 @@ def activate_pro_subscription(
 def deactivate_pro_subscription(
     stripe_subscription,
 ):
+    stripe_subscription = stripe_to_dict(
+        stripe_subscription
+    )
+
     stripe_subscription_id = (
         stripe_subscription.get(
             "id",
@@ -669,6 +750,7 @@ def stripe_webhook(request):
         logger.error(
             "STRIPE_WEBHOOK_SECRET is not configured."
         )
+
         return HttpResponse(
             "Webhook secret is not configured.",
             status=500,
@@ -678,6 +760,7 @@ def stripe_webhook(request):
         logger.error(
             "STRIPE_WEBHOOK_SECRET has an invalid format."
         )
+
         return HttpResponse(
             "Webhook secret must start with whsec_.",
             status=500,
@@ -702,10 +785,15 @@ def stripe_webhook(request):
             secret=webhook_secret,
         )
 
+        event = stripe_to_dict(
+            event
+        )
+
     except ValueError:
         logger.warning(
             "Stripe webhook contained an invalid payload."
         )
+
         return HttpResponseBadRequest(
             "Invalid Stripe payload."
         )
@@ -714,6 +802,7 @@ def stripe_webhook(request):
         logger.warning(
             "Stripe webhook signature verification failed."
         )
+
         return HttpResponseBadRequest(
             "Invalid Stripe signature."
         )
@@ -728,12 +817,21 @@ def stripe_webhook(request):
         "",
     )
 
-    event_object = event.get(
-        "data",
-        {},
-    ).get(
-        "object",
-        {},
+    event_data = stripe_to_dict(
+        event.get(
+            "data",
+            {},
+        )
+    )
+
+    if not isinstance(event_data, dict):
+        event_data = {}
+
+    event_object = stripe_to_dict(
+        event_data.get(
+            "object",
+            {},
+        )
     )
 
     logger.info(
@@ -745,7 +843,9 @@ def stripe_webhook(request):
     try:
         configure_stripe()
 
-        if event_type == "checkout.session.completed":
+        if event_type == (
+            "checkout.session.completed"
+        ):
             process_checkout_completed(
                 event_object
             )
@@ -817,17 +917,28 @@ def stripe_webhook(request):
 def process_checkout_completed(
     checkout_session,
 ):
-    user_id = checkout_session.get(
-        "metadata",
-        {},
-    ).get(
-        "user_id"
+    checkout_session = stripe_to_dict(
+        checkout_session
     )
 
-    if not user_id:
-        user_id = checkout_session.get(
+    metadata = stripe_to_dict(
+        checkout_session.get(
+            "metadata",
+            {},
+        )
+    )
+
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    user_id = (
+        metadata.get(
+            "user_id"
+        )
+        or checkout_session.get(
             "client_reference_id"
         )
+    )
 
     if not user_id:
         logger.warning(
@@ -912,12 +1023,20 @@ def process_checkout_completed(
             )
         )
 
+        stripe_subscription = stripe_to_dict(
+            stripe_subscription
+        )
+
         activate_pro_subscription(
             stripe_subscription
         )
 
 
 def get_invoice_subscription_id(invoice):
+    invoice = stripe_to_dict(
+        invoice
+    )
+
     subscription_id = invoice.get(
         "subscription"
     )
@@ -925,31 +1044,37 @@ def get_invoice_subscription_id(invoice):
     if subscription_id:
         return subscription_id
 
-    parent = invoice.get(
-        "parent",
-        {},
-    )
-
-    if hasattr(parent, "get"):
-        subscription_details = parent.get(
-            "subscription_details",
+    parent = stripe_to_dict(
+        invoice.get(
+            "parent",
             {},
         )
+    )
 
-        if hasattr(
+    if isinstance(parent, dict):
+        subscription_details = stripe_to_dict(
+            parent.get(
+                "subscription_details",
+                {},
+            )
+        )
+
+        if isinstance(
             subscription_details,
-            "get",
+            dict,
         ):
-            subscription_id = (
-                subscription_details.get(
-                    "subscription"
-                )
+            return subscription_details.get(
+                "subscription"
             )
 
-    return subscription_id
+    return None
 
 
 def process_paid_invoice(invoice):
+    invoice = stripe_to_dict(
+        invoice
+    )
+
     stripe_subscription_id = (
         get_invoice_subscription_id(
             invoice
@@ -972,12 +1097,20 @@ def process_paid_invoice(invoice):
         )
     )
 
+    stripe_subscription = stripe_to_dict(
+        stripe_subscription
+    )
+
     activate_pro_subscription(
         stripe_subscription
     )
 
 
 def process_failed_invoice(invoice):
+    invoice = stripe_to_dict(
+        invoice
+    )
+
     stripe_subscription_id = (
         get_invoice_subscription_id(
             invoice
