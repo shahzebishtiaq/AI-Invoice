@@ -24,22 +24,29 @@ logger = logging.getLogger(__name__)
 
 def stripe_to_dict(value):
     """
-    Convert real Stripe objects into normal dictionaries.
+    Convert real Stripe objects to normal Python dictionaries.
 
-    unittest.mock.MagicMock objects are left unchanged so
-    the existing Django tests continue to work.
+    MagicMock objects used by Django tests are not converted.
     """
     if isinstance(value, dict):
         return value
 
-    converter = getattr(
-        type(value),
-        "to_dict_recursive",
-        None,
+    value_type = type(value)
+    module_name = getattr(
+        value_type,
+        "__module__",
+        "",
     )
 
-    if callable(converter):
-        return value.to_dict_recursive()
+    if module_name.startswith("stripe"):
+        converter = getattr(
+            value,
+            "to_dict_recursive",
+            None,
+        )
+
+        if callable(converter):
+            return converter()
 
     return value
 
@@ -134,165 +141,7 @@ def get_subscription_period_end(
 
 @login_required
 @require_POST
-@login_required
-@require_POST
-def create_checkout_session(request):
-    subscription = get_user_subscription(
-        request.user
-    )
 
-    if (
-        subscription.plan == Subscription.PLAN_PRO
-        and subscription.is_active
-    ):
-        messages.info(
-            request,
-            "You already have an active Pro subscription.",
-        )
-        return redirect("pricing")
-
-    price_id = getattr(
-        settings,
-        "STRIPE_PRO_PRICE_ID",
-        "",
-    ).strip()
-
-    if not price_id:
-        messages.error(
-            request,
-            "STRIPE_PRO_PRICE_ID is not configured.",
-        )
-        return redirect("pricing")
-
-    if not price_id.startswith("price_"):
-        messages.error(
-            request,
-            "STRIPE_PRO_PRICE_ID must start with price_.",
-        )
-        return redirect("pricing")
-
-    try:
-        configure_stripe()
-
-        success_url = request.build_absolute_uri(
-            reverse("subscription_success")
-        )
-
-        cancel_url = request.build_absolute_uri(
-            reverse("subscription_cancel")
-        )
-
-        checkout_data = {
-            "mode": "subscription",
-            "line_items": [
-                {
-                    "price": price_id,
-                    "quantity": 1,
-                }
-            ],
-            "success_url": (
-                success_url
-                + "?session_id={CHECKOUT_SESSION_ID}"
-            ),
-            "cancel_url": cancel_url,
-            "client_reference_id": str(
-                request.user.pk
-            ),
-            "metadata": {
-                "user_id": str(
-                    request.user.pk
-                ),
-            },
-            "subscription_data": {
-                "metadata": {
-                    "user_id": str(
-                        request.user.pk
-                    ),
-                },
-            },
-            "allow_promotion_codes": True,
-        }
-
-        if subscription.stripe_customer_id:
-            checkout_data["customer"] = (
-                subscription.stripe_customer_id
-            )
-
-        elif request.user.email:
-            checkout_data["customer_email"] = (
-                request.user.email
-            )
-
-        checkout_session = (
-            stripe.checkout.Session.create(
-                **checkout_data
-            )
-        )
-
-        # Attributes work for both real Stripe objects
-        # and the MagicMock used by the Django test.
-        checkout_url = checkout_session.url
-        checkout_session_id = checkout_session.id
-
-        if not checkout_url:
-            raise ValueError(
-                "Stripe did not return a Checkout URL."
-            )
-
-        subscription.stripe_checkout_session_id = (
-            checkout_session_id
-        )
-
-        subscription.save(
-            update_fields=[
-                "stripe_checkout_session_id",
-                "updated_at",
-            ]
-        )
-
-        return redirect(checkout_url)
-
-    except stripe.AuthenticationError as exc:
-        logger.exception(
-            "Stripe authentication failed."
-        )
-
-        messages.error(
-            request,
-            f"Stripe authentication failed: {exc}",
-        )
-
-    except stripe.InvalidRequestError as exc:
-        logger.exception(
-            "Stripe rejected the Checkout request."
-        )
-
-        messages.error(
-            request,
-            f"Stripe request error: {exc}",
-        )
-
-    except stripe.StripeError as exc:
-        logger.exception(
-            "Stripe Checkout failed."
-        )
-
-        messages.error(
-            request,
-            f"Stripe error: {exc}",
-        )
-
-    except Exception as exc:
-        logger.exception(
-            "Checkout Session creation failed."
-        )
-
-        messages.error(
-            request,
-            f"Checkout error: {exc}",
-        )
-
-    return redirect("pricing")
 
 
 @login_required
