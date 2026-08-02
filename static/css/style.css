@@ -1343,3 +1343,146 @@ input[type="checkbox"] {
 .nav-toggle{display:none;width:44px;height:44px;margin-left:auto;padding:10px;border:1px solid #374151;border-radius:10px;background:#1f2937;cursor:pointer}.nav-toggle span{display:block;height:2px;margin:5px 0;border-radius:999px;background:#fff;transition:transform .2s ease,opacity .2s ease}.nav-toggle[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}.nav-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}.nav-toggle[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}.table-responsive{-webkit-overflow-scrolling:touch}input,select,textarea{max-width:100%}
 @media(max-width:720px){body.menu-open{overflow:hidden}.navbar{position:sticky;top:0;z-index:1000}.navbar .container{position:relative;min-height:64px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}.logo{width:auto}.logo a{font-size:18px}.nav-toggle{display:block}.primary-navigation{display:none;order:4;flex:0 0 100%;width:100%;padding-top:10px}.primary-navigation.is-open{display:block}.nav-links{display:grid;grid-template-columns:1fr;gap:6px;padding:8px;border:1px solid #374151;border-radius:12px;background:#111827}.nav-links a{display:block;width:100%;min-height:44px;padding:11px 12px;font-size:15px}.user-menu{order:3;width:100%;margin-left:0;padding-top:6px;justify-content:space-between}.user-menu .username{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}main.container{min-height:calc(100vh - 130px);padding-bottom:32px}.page-header>*,.section-header>*{width:100%}.btn{min-height:44px;justify-content:center}.card{margin-bottom:16px;border-radius:12px}.table-responsive{width:calc(100vw - 24px);margin-right:-12px;padding-right:12px;overflow-x:auto}table{min-width:680px}.auth-wrapper{padding:20px 0}.hero-section,.pricing-page-header{padding-top:40px}.hero-content h1{font-size:clamp(34px,11vw,44px)}.hero-actions{align-items:stretch;flex-direction:column}.hero-actions .btn{width:100%}.pricing-card,.cta-section{padding:24px}.pricing-price strong{font-size:40px}}
 @media(max-width:420px){.container{width:min(100% - 18px,1180px)}h1{font-size:25px}.card,.auth-card{padding:16px}.form-actions,.button-group{gap:10px}}
+
+/* =========================================================
+   LOGIN PASSWORD FIELD
+========================================================= */
+
+.password-field-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-field-wrapper input {
+    width: 100%;
+    padding-right: 50px;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 34px;
+    height: 34px;
+    padding: 0;
+
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    background: #eff6ff;
+}
+
+.password-field-wrapper .form-control {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding-right: 52px;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 36px;
+    height: 36px;
+    padding: 0;
+
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #64748b;
+
+    cursor: pointer;
+    z-index: 2;
+
+    transition:
+        color 0.2s ease,
+        background 0.2s ease;
+}
+
+.password-toggle:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.password-toggle:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.password-toggle svg {
+    display: block;
+    width: 21px;
+    height: 21px;
+
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+
+    pointer-events: none;
+}
+
+.password-toggle svg[hidden] {
+    display: none;
+}
+
+.forgot-password-link {
+    margin-top: -8px;
+    margin-bottom: 18px;
+    text-align: right;
+    font-size: 14px;
+}
+
+.forgot-password-link a {
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.forgot-password-link a:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+@media (max-width: 460px) {
+    .password-field-wrapper .form-control {
+        padding-right: 48px;
+    }
+
+    .password-toggle {
+        right: 7px;
+        width: 34px;
+        height: 34px;
+    }
+
+    .password-toggle svg {
+        width: 19px;
+        height: 19px;
+    }
+
+    .forgot-password-link {
+        margin-top: -5px;
+        font-size: 13px;
+    }
+}
