@@ -1,18 +1,22 @@
 import logging
-from datetime import datetime
-from datetime import timezone as datetime_timezone
+from datetime import (
+    datetime,
+    timezone as datetime_timezone,
+)
 
 import stripe
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import (
+    HttpResponse,
+    HttpResponseBadRequest,
+)
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from stripe._stripe_object import StripeObject
 
 from accounts.models import User
 
@@ -23,51 +27,18 @@ from .services import get_user_subscription
 logger = logging.getLogger(__name__)
 
 
-def stripe_to_dict(value):
-    """
-    Recursively convert Stripe objects into normal
-    Python dictionaries and lists.
-
-    MagicMock objects used by tests are left unchanged.
-    """
-    if isinstance(value, StripeObject):
-        value = value._data
-
-    if isinstance(value, dict):
-        return {
-            key: stripe_to_dict(item)
-            for key, item in value.items()
-        }
-
-    if isinstance(value, (list, tuple)):
-        return [
-            stripe_to_dict(item)
-            for item in value
-        ]
-
-    return value
-
-
 def configure_stripe():
-    secret_key = getattr(
-        settings,
-        "STRIPE_SECRET_KEY",
-        "",
-    ).strip()
+    secret_key = settings.STRIPE_SECRET_KEY.strip()
 
     if not secret_key:
         raise ValueError(
-            "STRIPE_SECRET_KEY is not configured."
+            "STRIPE_SECRET_KEY is not configured in the .env file."
         )
 
-    if not secret_key.startswith(
-        (
-            "sk_test_",
-            "sk_live_",
-        )
-    ):
+    if not secret_key.startswith("sk_test_"):
         raise ValueError(
-            "STRIPE_SECRET_KEY has an invalid format."
+            "STRIPE_SECRET_KEY must be a real Stripe test secret key "
+            "starting with sk_test_."
         )
 
     stripe.api_key = secret_key
@@ -77,65 +48,9 @@ def timestamp_to_datetime(timestamp):
     if not timestamp:
         return None
 
-    try:
-        return datetime.fromtimestamp(
-            int(timestamp),
-            tz=datetime_timezone.utc,
-        )
-
-    except (
-        TypeError,
-        ValueError,
-        OverflowError,
-    ):
-        logger.warning(
-            "Invalid Stripe timestamp received: %r",
-            timestamp,
-        )
-        return None
-
-
-def get_subscription_period_end(
-    stripe_subscription,
-):
-    stripe_subscription = stripe_to_dict(
-        stripe_subscription
-    )
-
-    period_end = stripe_subscription.get(
-        "current_period_end"
-    )
-
-    if period_end:
-        return period_end
-
-    items = stripe_to_dict(
-        stripe_subscription.get(
-            "items",
-            {},
-        )
-    )
-
-    if not isinstance(items, dict):
-        return None
-
-    item_data = items.get(
-        "data",
-        [],
-    )
-
-    if not item_data:
-        return None
-
-    first_item = stripe_to_dict(
-        item_data[0]
-    )
-
-    if not isinstance(first_item, dict):
-        return None
-
-    return first_item.get(
-        "current_period_end"
+    return datetime.fromtimestamp(
+        timestamp,
+        tz=datetime_timezone.utc,
     )
 
 
@@ -154,37 +69,46 @@ def create_checkout_session(request):
             request,
             "You already have an active Pro subscription.",
         )
-        return redirect("pricing")
 
-    price_id = getattr(
-        settings,
-        "STRIPE_PRO_PRICE_ID",
-        "",
-    ).strip()
+        return redirect(
+            "pricing"
+        )
+
+    price_id = settings.STRIPE_PRO_PRICE_ID.strip()
 
     if not price_id:
         messages.error(
             request,
             "STRIPE_PRO_PRICE_ID is not configured.",
         )
-        return redirect("pricing")
+
+        return redirect(
+            "pricing"
+        )
 
     if not price_id.startswith("price_"):
         messages.error(
             request,
             "STRIPE_PRO_PRICE_ID must start with price_.",
         )
-        return redirect("pricing")
+
+        return redirect(
+            "pricing"
+        )
 
     try:
         configure_stripe()
 
         success_url = request.build_absolute_uri(
-            reverse("subscription_success")
+            reverse(
+                "subscription_success"
+            )
         )
 
         cancel_url = request.build_absolute_uri(
-            reverse("subscription_cancel")
+            reverse(
+                "subscription_cancel"
+            )
         )
 
         checkout_data = {
@@ -222,30 +146,23 @@ def create_checkout_session(request):
             checkout_data["customer"] = (
                 subscription.stripe_customer_id
             )
-
-        elif request.user.email:
+        else:
             checkout_data["customer_email"] = (
                 request.user.email
             )
 
-        checkout_session = (
-            stripe.checkout.Session.create(
-                **checkout_data
-            )
+        checkout_session = stripe.checkout.Session.create(
+            **checkout_data
         )
 
-        # Attribute access works with StripeObject and
-        # the MagicMock used by the existing tests.
-        checkout_url = checkout_session.url
-        checkout_session_id = checkout_session.id
-
-        if not checkout_url:
+        if not checkout_session.url:
             raise ValueError(
-                "Stripe did not return a Checkout URL."
+                "Stripe created a Checkout Session "
+                "but did not return a checkout URL."
             )
 
         subscription.stripe_checkout_session_id = (
-            checkout_session_id
+            checkout_session.id
         )
 
         subscription.save(
@@ -255,9 +172,11 @@ def create_checkout_session(request):
             ]
         )
 
-        return redirect(checkout_url)
+        return redirect(
+            checkout_session.url
+        )
 
-    except stripe.AuthenticationError as exc:
+    except stripe.error.AuthenticationError as exc:
         logger.exception(
             "Stripe authentication failed."
         )
@@ -267,9 +186,9 @@ def create_checkout_session(request):
             f"Stripe authentication failed: {exc}",
         )
 
-    except stripe.InvalidRequestError as exc:
+    except stripe.error.InvalidRequestError as exc:
         logger.exception(
-            "Stripe rejected the Checkout request."
+            "Stripe rejected the checkout request."
         )
 
         messages.error(
@@ -277,9 +196,9 @@ def create_checkout_session(request):
             f"Stripe request error: {exc}",
         )
 
-    except stripe.StripeError as exc:
+    except stripe.error.StripeError as exc:
         logger.exception(
-            "Stripe Checkout failed."
+            "Stripe checkout failed."
         )
 
         messages.error(
@@ -289,7 +208,7 @@ def create_checkout_session(request):
 
     except Exception as exc:
         logger.exception(
-            "Checkout Session creation failed."
+            "Stripe checkout session creation failed."
         )
 
         messages.error(
@@ -297,9 +216,12 @@ def create_checkout_session(request):
             f"Checkout error: {exc}",
         )
 
-    return redirect("pricing")
+    return redirect(
+        "pricing"
+    )
 
 
+@login_required
 @login_required
 def stripe_checkout_success(request):
     session_id = request.GET.get(
@@ -310,86 +232,62 @@ def stripe_checkout_success(request):
     if not session_id:
         messages.warning(
             request,
-            "Payment succeeded, but the Checkout Session "
-            "ID was not returned. The webhook will update "
-            "your subscription.",
+            "Payment succeeded, but the Checkout Session ID "
+            "was not returned. Your subscription will be updated "
+            "when the Stripe webhook arrives.",
         )
-        return redirect("dashboard")
+
+        return redirect(
+            "dashboard"
+        )
 
     try:
         configure_stripe()
 
-        checkout_session = (
-            stripe.checkout.Session.retrieve(
-                session_id,
-                expand=[
-                    "subscription",
-                ],
-            )
+        checkout_session = stripe.checkout.Session.retrieve(
+            session_id,
+            expand=[
+                "subscription",
+            ],
         )
 
-        checkout_session = stripe_to_dict(
-            checkout_session
-        )
-
-        if not isinstance(
-            checkout_session,
-            dict,
-        ):
-            raise TypeError(
-                "Stripe Checkout Session could not "
-                "be converted to a dictionary."
-            )
-
-        metadata = stripe_to_dict(
+        session_user_id = str(
             checkout_session.get(
                 "metadata",
                 {},
-            )
-        )
-
-        if not isinstance(metadata, dict):
-            metadata = {}
-
-        session_user_id = str(
-            metadata.get(
+            ).get(
                 "user_id",
                 "",
             )
         )
 
-        if session_user_id != str(
-            request.user.pk
-        ):
+        if session_user_id != str(request.user.pk):
             logger.warning(
-                "Checkout Session %s does not belong "
-                "to user %s.",
+                "Stripe Checkout Session %s does not belong to user %s.",
                 session_id,
                 request.user.pk,
             )
 
             messages.error(
                 request,
-                "This payment session does not belong "
-                "to your account.",
+                "This payment session does not belong to your account.",
             )
 
-            return redirect("pricing")
+            return redirect(
+                "pricing"
+            )
 
         payment_status = checkout_session.get(
             "payment_status",
             "",
         )
 
-        stripe_subscription = (
-            checkout_session.get(
-                "subscription"
-            )
+        stripe_subscription = checkout_session.get(
+            "subscription"
         )
 
         if (
-            payment_status
-            in {
+            payment_status in {
                 "paid",
                 "no_payment_required",
             }
@@ -404,10 +302,6 @@ def stripe_checkout_success(request):
                         stripe_subscription
                     )
                 )
-
-            stripe_subscription = stripe_to_dict(
-                stripe_subscription
-            )
 
             activate_pro_subscription(
                 stripe_subscription
@@ -442,27 +336,25 @@ def stripe_checkout_success(request):
 
             messages.success(
                 request,
-                "Payment completed. Your Pro "
-                "subscription is active.",
+                "Payment completed. Your Pro subscription is active.",
             )
 
         else:
             messages.info(
                 request,
-                "Stripe is still processing your "
-                "subscription. The webhook will update it.",
+                "Stripe is still processing your subscription. "
+                "The account will be updated by the webhook.",
             )
 
-    except stripe.StripeError:
+    except stripe.error.StripeError:
         logger.exception(
-            "Could not verify the successful "
-            "Stripe Checkout Session."
+            "Could not verify the successful Stripe Checkout Session."
         )
 
         messages.warning(
             request,
-            "Payment completed, but Stripe verification "
-            "failed temporarily.",
+            "Payment was completed, but the subscription could not "
+            "be verified immediately. The Stripe webhook will retry it.",
         )
 
     except Exception:
@@ -472,11 +364,13 @@ def stripe_checkout_success(request):
 
         messages.warning(
             request,
-            "Payment was completed, but subscription "
-            "verification is still pending.",
+            "Payment was completed, but subscription verification "
+            "is still pending.",
         )
 
-    return redirect("dashboard")
+    return redirect(
+        "dashboard"
+    )
 
 
 @login_required
@@ -487,7 +381,9 @@ def stripe_checkout_cancel(request):
         "Your plan has not changed.",
     )
 
-    return redirect("pricing")
+    return redirect(
+        "pricing"
+    )
 
 
 @login_required
@@ -502,13 +398,18 @@ def subscription_portal(request):
             request,
             "No Stripe billing account was found.",
         )
-        return redirect("pricing")
+
+        return redirect(
+            "pricing"
+        )
 
     try:
         configure_stripe()
 
         return_url = request.build_absolute_uri(
-            reverse("pricing")
+            reverse(
+                "pricing"
+            )
         )
 
         portal_session = (
@@ -520,16 +421,11 @@ def subscription_portal(request):
             )
         )
 
-        portal_url = portal_session.url
+        return redirect(
+            portal_session.url
+        )
 
-        if not portal_url:
-            raise ValueError(
-                "Stripe did not return a billing portal URL."
-            )
-
-        return redirect(portal_url)
-
-    except stripe.StripeError as exc:
+    except stripe.error.StripeError as exc:
         logger.exception(
             "Stripe billing portal creation failed."
         )
@@ -549,34 +445,18 @@ def subscription_portal(request):
             f"Billing portal error: {exc}",
         )
 
-    return redirect("pricing")
+    return redirect(
+        "pricing"
+    )
 
 
 def activate_pro_subscription(
     stripe_subscription,
 ):
-    stripe_subscription = stripe_to_dict(
-        stripe_subscription
+    metadata = stripe_subscription.get(
+        "metadata",
+        {},
     )
-
-    if not isinstance(
-        stripe_subscription,
-        dict,
-    ):
-        raise TypeError(
-            "Stripe subscription could not be "
-            "converted to a dictionary."
-        )
-
-    metadata = stripe_to_dict(
-        stripe_subscription.get(
-            "metadata",
-            {},
-        )
-    )
-
-    if not isinstance(metadata, dict):
-        metadata = {}
 
     user_id = metadata.get(
         "user_id"
@@ -594,40 +474,46 @@ def activate_pro_subscription(
         )
     )
 
-    user = None
-
     if user_id:
         try:
             user = User.objects.get(
                 pk=user_id
             )
-
         except User.DoesNotExist:
             logger.warning(
-                "Stripe subscription user does "
-                "not exist: %s",
+                "Stripe subscription user does not exist: %s",
                 user_id,
             )
+
             return
 
     elif customer_id:
-        existing_subscription = (
+        subscription = (
             Subscription.objects.filter(
                 stripe_customer_id=customer_id,
             )
-            .select_related("user")
+            .select_related(
+                "user"
+            )
             .first()
         )
 
-        if existing_subscription:
-            user = existing_subscription.user
+        if subscription is None:
+            logger.warning(
+                "No user found for Stripe customer %s.",
+                customer_id,
+            )
 
-    if user is None:
+            return
+
+        user = subscription.user
+
+    else:
         logger.warning(
-            "Could not match Stripe subscription %s "
-            "to a local user.",
-            stripe_subscription_id,
+            "Stripe subscription has no user metadata "
+            "or customer ID."
         )
+
         return
 
     subscription = get_user_subscription(
@@ -639,46 +525,28 @@ def activate_pro_subscription(
         "",
     )
 
-    if stripe_status in {
+    active_statuses = {
         "active",
         "trialing",
-    }:
-        subscription.status = (
-            Subscription.STATUS_ACTIVE
-        )
+    }
 
-        subscription.plan = (
-            Subscription.PLAN_PRO
-        )
-
+    if stripe_status in active_statuses:
+        local_status = Subscription.STATUS_ACTIVE
+        local_plan = Subscription.PLAN_PRO
     else:
-        subscription.status = (
-            Subscription.STATUS_EXPIRED
-        )
+        local_status = Subscription.STATUS_EXPIRED
+        local_plan = Subscription.PLAN_FREE
 
-        subscription.plan = (
-            Subscription.PLAN_FREE
-        )
-
-    period_end = get_subscription_period_end(
-        stripe_subscription
-    )
-
-    subscription.stripe_customer_id = (
-        customer_id
-        or subscription.stripe_customer_id
-    )
-
+    subscription.plan = local_plan
+    subscription.status = local_status
+    subscription.stripe_customer_id = customer_id
     subscription.stripe_subscription_id = (
         stripe_subscription_id
-        or subscription.stripe_subscription_id
     )
-
     subscription.started_at = timezone.now()
-
-    subscription.expires_at = (
-        timestamp_to_datetime(
-            period_end
+    subscription.expires_at = timestamp_to_datetime(
+        stripe_subscription.get(
+            "current_period_end"
         )
     )
 
@@ -698,19 +566,6 @@ def activate_pro_subscription(
 def deactivate_pro_subscription(
     stripe_subscription,
 ):
-    stripe_subscription = stripe_to_dict(
-        stripe_subscription
-    )
-
-    if not isinstance(
-        stripe_subscription,
-        dict,
-    ):
-        raise TypeError(
-            "Stripe subscription could not be "
-            "converted to a dictionary."
-        )
-
     stripe_subscription_id = (
         stripe_subscription.get(
             "id",
@@ -744,16 +599,11 @@ def deactivate_pro_subscription(
             "Stripe subscription %s.",
             stripe_subscription_id,
         )
+
         return
 
-    subscription.plan = (
-        Subscription.PLAN_FREE
-    )
-
-    subscription.status = (
-        Subscription.STATUS_CANCELLED
-    )
-
+    subscription.plan = Subscription.PLAN_FREE
+    subscription.status = Subscription.STATUS_CANCELLED
     subscription.expires_at = timezone.now()
 
     subscription.save(
@@ -769,11 +619,9 @@ def deactivate_pro_subscription(
 @csrf_exempt
 @require_POST
 def stripe_webhook(request):
-    webhook_secret = getattr(
-        settings,
-        "STRIPE_WEBHOOK_SECRET",
-        "",
-    ).strip()
+    webhook_secret = (
+        settings.STRIPE_WEBHOOK_SECRET.strip()
+    )
 
     if not webhook_secret:
         logger.error(
@@ -803,26 +651,22 @@ def stripe_webhook(request):
     )
 
     if not signature:
+        logger.warning(
+            "Stripe webhook request has no signature header."
+        )
+
         return HttpResponseBadRequest(
             "Missing Stripe signature."
         )
 
     try:
+        configure_stripe()
+
         event = stripe.Webhook.construct_event(
             payload=payload,
             sig_header=signature,
             secret=webhook_secret,
         )
-
-        event = stripe_to_dict(
-            event
-        )
-
-        if not isinstance(event, dict):
-            raise ValueError(
-                "Stripe event could not be converted "
-                "to a dictionary."
-            )
 
     except ValueError:
         logger.warning(
@@ -833,13 +677,24 @@ def stripe_webhook(request):
             "Invalid Stripe payload."
         )
 
-    except stripe.SignatureVerificationError:
+    except stripe.error.SignatureVerificationError:
         logger.warning(
             "Stripe webhook signature verification failed."
         )
 
         return HttpResponseBadRequest(
             "Invalid Stripe signature."
+        )
+
+    except ValueError as exc:
+        logger.exception(
+            "Stripe configuration error: %s",
+            exc,
+        )
+
+        return HttpResponse(
+            "Stripe is not configured correctly.",
+            status=500,
         )
 
     event_id = event.get(
@@ -852,18 +707,11 @@ def stripe_webhook(request):
         "",
     )
 
-    event_data = stripe_to_dict(
+    event_object = (
         event.get(
             "data",
             {},
-        )
-    )
-
-    if not isinstance(event_data, dict):
-        event_data = {}
-
-    event_object = stripe_to_dict(
-        event_data.get(
+        ).get(
             "object",
             {},
         )
@@ -876,14 +724,108 @@ def stripe_webhook(request):
     )
 
     try:
-        configure_stripe()
-
-        if event_type == (
-            "checkout.session.completed"
-        ):
-            process_checkout_completed(
-                event_object
+        if event_type == "checkout.session.completed":
+            payment_status = event_object.get(
+                "payment_status",
+                "",
             )
+
+            session_mode = event_object.get(
+                "mode",
+                "",
+            )
+
+            user_id = (
+                event_object.get(
+                    "metadata",
+                    {},
+                ).get(
+                    "user_id"
+                )
+            )
+
+            if not user_id:
+                logger.warning(
+                    "Checkout Session %s has no user_id metadata.",
+                    event_object.get(
+                        "id",
+                        "",
+                    ),
+                )
+
+                return HttpResponse(
+                    status=200
+                )
+
+            subscription = (
+                Subscription.objects.filter(
+                    user_id=user_id,
+                ).first()
+            )
+
+            if not subscription:
+                logger.warning(
+                    "No local subscription was found for user %s.",
+                    user_id,
+                )
+
+                return HttpResponse(
+                    status=200
+                )
+
+            subscription.stripe_customer_id = (
+                event_object.get(
+                    "customer",
+                    "",
+                )
+                or subscription.stripe_customer_id
+            )
+
+            stripe_subscription_id = (
+                event_object.get(
+                    "subscription",
+                    "",
+                )
+            )
+
+            if stripe_subscription_id:
+                subscription.stripe_subscription_id = (
+                    stripe_subscription_id
+                )
+
+            subscription.stripe_checkout_session_id = (
+                event_object.get(
+                    "id",
+                    "",
+                )
+            )
+
+            subscription.save(
+                update_fields=[
+                    "stripe_customer_id",
+                    "stripe_subscription_id",
+                    "stripe_checkout_session_id",
+                    "updated_at",
+                ]
+            )
+
+            if (
+                session_mode == "subscription"
+                and stripe_subscription_id
+                and payment_status in {
+                    "paid",
+                    "no_payment_required",
+                }
+            ):
+                stripe_subscription = (
+                    stripe.Subscription.retrieve(
+                        stripe_subscription_id
+                    )
+                )
+
+                activate_pro_subscription(
+                    stripe_subscription
+                )
 
         elif event_type in {
             "customer.subscription.created",
@@ -893,38 +835,68 @@ def stripe_webhook(request):
                 event_object
             )
 
-        elif event_type == (
-            "customer.subscription.deleted"
-        ):
+        elif event_type == "customer.subscription.deleted":
             deactivate_pro_subscription(
                 event_object
             )
 
-        elif event_type in {
-            "invoice.paid",
-            "invoice.payment_succeeded",
-        }:
-            process_paid_invoice(
-                event_object
+        elif event_type == "invoice.payment_succeeded":
+            stripe_subscription_id = (
+                event_object.get(
+                    "subscription",
+                    "",
+                )
             )
 
-        elif event_type == (
-            "invoice.payment_failed"
-        ):
-            process_failed_invoice(
-                event_object
+            if stripe_subscription_id:
+                stripe_subscription = (
+                    stripe.Subscription.retrieve(
+                        stripe_subscription_id
+                    )
+                )
+
+                activate_pro_subscription(
+                    stripe_subscription
+                )
+
+        elif event_type == "invoice.payment_failed":
+            stripe_subscription_id = (
+                event_object.get(
+                    "subscription",
+                    "",
+                )
             )
+
+            if stripe_subscription_id:
+                subscription = (
+                    Subscription.objects.filter(
+                        stripe_subscription_id=(
+                            stripe_subscription_id
+                        ),
+                    ).first()
+                )
+
+                if subscription:
+                    subscription.status = (
+                        Subscription.STATUS_PAST_DUE
+                    )
+
+                    subscription.save(
+                        update_fields=[
+                            "status",
+                            "updated_at",
+                        ]
+                    )
 
         else:
             logger.info(
-                "Ignoring unsupported Stripe event: %s",
+                "Ignoring unsupported Stripe event type %s.",
                 event_type,
             )
 
-    except stripe.StripeError:
+    except stripe.error.StripeError:
         logger.exception(
-            "Stripe API error while processing "
-            "webhook %s.",
+            "Stripe API error while processing webhook %s.",
             event_id,
         )
 
@@ -935,8 +907,8 @@ def stripe_webhook(request):
 
     except Exception:
         logger.exception(
-            "Stripe webhook processing failed for "
-            "event %s of type %s.",
+            "Stripe webhook processing failed for event %s "
+            "of type %s.",
             event_id,
             event_type,
         )
@@ -947,306 +919,5 @@ def stripe_webhook(request):
         )
 
     return HttpResponse(
-        "Webhook received.",
-        status=200,
+        status=200
     )
-
-
-def process_checkout_completed(
-    checkout_session,
-):
-    checkout_session = stripe_to_dict(
-        checkout_session
-    )
-
-    if not isinstance(
-        checkout_session,
-        dict,
-    ):
-        raise TypeError(
-            "Checkout Session could not be converted "
-            "to a dictionary."
-        )
-
-    metadata = stripe_to_dict(
-        checkout_session.get(
-            "metadata",
-            {},
-        )
-    )
-
-    if not isinstance(metadata, dict):
-        metadata = {}
-
-    user_id = (
-        metadata.get(
-            "user_id"
-        )
-        or checkout_session.get(
-            "client_reference_id"
-        )
-    )
-
-    if not user_id:
-        logger.warning(
-            "Checkout Session %s has no user ID.",
-            checkout_session.get(
-                "id",
-                "",
-            ),
-        )
-        return
-
-    subscription = (
-        Subscription.objects.filter(
-            user_id=user_id,
-        ).first()
-    )
-
-    if subscription is None:
-        logger.warning(
-            "No local subscription was found "
-            "for user %s.",
-            user_id,
-        )
-        return
-
-    customer_id = checkout_session.get(
-        "customer",
-        "",
-    )
-
-    stripe_subscription_value = (
-        checkout_session.get(
-            "subscription",
-            "",
-        )
-    )
-
-    if isinstance(
-        stripe_subscription_value,
-        dict,
-    ):
-        stripe_subscription_id = (
-            stripe_subscription_value.get(
-                "id",
-                "",
-            )
-        )
-
-    else:
-        stripe_subscription_id = (
-            stripe_subscription_value
-        )
-
-    subscription.stripe_customer_id = (
-        customer_id
-        or subscription.stripe_customer_id
-    )
-
-    subscription.stripe_subscription_id = (
-        stripe_subscription_id
-        or subscription.stripe_subscription_id
-    )
-
-    subscription.stripe_checkout_session_id = (
-        checkout_session.get(
-            "id",
-            "",
-        )
-    )
-
-    subscription.save(
-        update_fields=[
-            "stripe_customer_id",
-            "stripe_subscription_id",
-            "stripe_checkout_session_id",
-            "updated_at",
-        ]
-    )
-
-    payment_status = checkout_session.get(
-        "payment_status",
-        "",
-    )
-
-    if (
-        checkout_session.get(
-            "mode"
-        )
-        == "subscription"
-        and stripe_subscription_value
-        and payment_status
-        in {
-            "paid",
-            "no_payment_required",
-        }
-    ):
-        if isinstance(
-            stripe_subscription_value,
-            dict,
-        ):
-            stripe_subscription = (
-                stripe_subscription_value
-            )
-
-        else:
-            stripe_subscription = (
-                stripe.Subscription.retrieve(
-                    stripe_subscription_value
-                )
-            )
-
-        stripe_subscription = stripe_to_dict(
-            stripe_subscription
-        )
-
-        activate_pro_subscription(
-            stripe_subscription
-        )
-
-
-def get_invoice_subscription_id(invoice):
-    invoice = stripe_to_dict(
-        invoice
-    )
-
-    if not isinstance(invoice, dict):
-        return None
-
-    subscription_value = invoice.get(
-        "subscription"
-    )
-
-    if isinstance(
-        subscription_value,
-        dict,
-    ):
-        subscription_id = (
-            subscription_value.get(
-                "id"
-            )
-        )
-
-    else:
-        subscription_id = (
-            subscription_value
-        )
-
-    if subscription_id:
-        return subscription_id
-
-    parent = stripe_to_dict(
-        invoice.get(
-            "parent",
-            {},
-        )
-    )
-
-    if not isinstance(parent, dict):
-        return None
-
-    subscription_details = stripe_to_dict(
-        parent.get(
-            "subscription_details",
-            {},
-        )
-    )
-
-    if not isinstance(
-        subscription_details,
-        dict,
-    ):
-        return None
-
-    parent_subscription = (
-        subscription_details.get(
-            "subscription"
-        )
-    )
-
-    if isinstance(
-        parent_subscription,
-        dict,
-    ):
-        return parent_subscription.get(
-            "id"
-        )
-
-    return parent_subscription
-
-
-def process_paid_invoice(invoice):
-    invoice = stripe_to_dict(
-        invoice
-    )
-
-    stripe_subscription_id = (
-        get_invoice_subscription_id(
-            invoice
-        )
-    )
-
-    if not stripe_subscription_id:
-        invoice_id = ""
-
-        if isinstance(invoice, dict):
-            invoice_id = invoice.get(
-                "id",
-                "",
-            )
-
-        logger.info(
-            "Paid invoice %s has no subscription ID.",
-            invoice_id,
-        )
-        return
-
-    stripe_subscription = (
-        stripe.Subscription.retrieve(
-            stripe_subscription_id
-        )
-    )
-
-    stripe_subscription = stripe_to_dict(
-        stripe_subscription
-    )
-
-    activate_pro_subscription(
-        stripe_subscription
-    )
-
-
-def process_failed_invoice(invoice):
-    invoice = stripe_to_dict(
-        invoice
-    )
-
-    stripe_subscription_id = (
-        get_invoice_subscription_id(
-            invoice
-        )
-    )
-
-    if not stripe_subscription_id:
-        return
-
-    subscription = (
-        Subscription.objects.filter(
-            stripe_subscription_id=(
-                stripe_subscription_id
-            ),
-        ).first()
-    )
-
-    if subscription:
-        subscription.status = (
-            Subscription.STATUS_PAST_DUE
-        )
-
-        subscription.save(
-            update_fields=[
-                "status",
-                "updated_at",
-            ]
-        )

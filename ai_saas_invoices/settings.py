@@ -1,18 +1,12 @@
-import sys
 import os
 from pathlib import Path
 
-import dj_database_url
 from dotenv import load_dotenv
+
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
-
-
-# ---------------------------------------------------------
-# Core settings
-# ---------------------------------------------------------
 
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
@@ -28,18 +22,6 @@ ALLOWED_HOSTS = [
         "127.0.0.1,localhost",
     ).split(",")
     if host.strip()
-]
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        "CSRF_TRUSTED_ORIGINS",
-        (
-            "https://ai-invoice-k6lp.onrender.com,"
-            "https://youraiinvoice.com,"
-            "https://www.youraiinvoice.com"
-        ),
-    ).split(",")
-    if origin.strip()
 ]
 
 
@@ -61,11 +43,12 @@ INSTALLED_APPS = [
 
     # Project applications
     "accounts",
-    "clients",
+     "clients",
     "invoices",
     "ai_tools",
     "dashboard",
     "subscriptions.apps.SubscriptionsConfig",
+
 ]
 
 
@@ -75,7 +58,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -127,11 +109,10 @@ ASGI_APPLICATION = "ai_saas_invoices.asgi.application"
 # ---------------------------------------------------------
 
 DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
 }
 
 
@@ -192,29 +173,6 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": (
-            "whitenoise.storage."
-            "CompressedManifestStaticFilesStorage"
-        ),
-    },
-}
-
-# Use normal static storage during local development and tests.
-# This prevents:
-# Missing staticfiles manifest entry for 'css/style.css'
-if DEBUG or "test" in sys.argv:
-    STORAGES["staticfiles"] = {
-        "BACKEND": (
-            "django.contrib.staticfiles.storage."
-            "StaticFilesStorage"
-        ),
-    }
-
 
 # ---------------------------------------------------------
 # Uploaded media files
@@ -263,10 +221,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-
-# ---------------------------------------------------------
-# Email
-# ---------------------------------------------------------
 
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
@@ -322,13 +276,10 @@ EMAIL_TIMEOUT = 20
 # ---------------------------------------------------------
 # OpenAI
 # ---------------------------------------------------------
-
 OPENAI_API_KEY = os.getenv(
     "OPENAI_API_KEY",
     "",
 )
-
-
 # ---------------------------------------------------------
 # Stripe
 # ---------------------------------------------------------
@@ -352,68 +303,3 @@ STRIPE_PRO_PRICE_ID = os.getenv(
     "STRIPE_PRO_PRICE_ID",
     "",
 )
-
-
-# ---------------------------------------------------------
-# Production security
-# ---------------------------------------------------------
-
-def env_bool(name, default=False):
-    return os.getenv(name, str(default)).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-
-
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        "CSRF_TRUSTED_ORIGINS",
-        "",
-    ).split(",")
-    if origin.strip()
-]
-
-SECURE_SSL_REDIRECT = env_bool(
-    "SECURE_SSL_REDIRECT",
-    not DEBUG,
-)
-
-SESSION_COOKIE_SECURE = env_bool(
-    "SESSION_COOKIE_SECURE",
-    not DEBUG,
-)
-
-CSRF_COOKIE_SECURE = env_bool(
-    "CSRF_COOKIE_SECURE",
-    not DEBUG,
-)
-
-SECURE_HSTS_SECONDS = int(
-    os.getenv(
-        "SECURE_HSTS_SECONDS",
-        "0",
-    )
-)
-
-SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
-    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
-    False,
-)
-
-SECURE_HSTS_PRELOAD = env_bool(
-    "SECURE_HSTS_PRELOAD",
-    False,
-)
-
-SECURE_CONTENT_TYPE_NOSNIFF = True
-
-X_FRAME_OPTIONS = "DENY"
-
-if env_bool("USE_X_FORWARDED_PROTO", not DEBUG):
-    SECURE_PROXY_SSL_HEADER = (
-        "HTTP_X_FORWARDED_PROTO",
-        "https",
-    )

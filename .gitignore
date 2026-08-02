@@ -1,32 +1,24 @@
-# Environment and secrets
+# Environment variables
 .env
-.env.*
-!.env.example
 
 # Python
 __pycache__/
 *.py[cod]
 *.pyo
-.venv/
+
+# Virtual environments
 venv/
+.venv/
 env/
 
-# Django generated/local data
+# Django
 db.sqlite3
-db.sqlite3-journal
-staticfiles/
 media/
-*.log
+staticfiles/
 
-# Tests and tooling
-.coverage
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-
-# Editors and operating systems
-.vscode/
+# PyCharm
 .idea/
-.DS_Store
-Thumbs.db
+
+# Generated project exports
 project_code.txt
+project_code*.txt

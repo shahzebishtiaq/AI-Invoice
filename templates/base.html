@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -10,9 +9,14 @@
         content="width=device-width, initial-scale=1.0"
     >
 
+    <meta
+        name="description"
+        content="Create and manage professional invoices with AI."
+    >
+
     <title>
         {% block title %}
-            AI Invoice SaaS
+            YourAIInvoice — AI Invoice Generator
         {% endblock %}
     </title>
 
@@ -23,179 +27,280 @@
         href="{% static 'css/style.css' %}"
     >
 
+    {% block extra_css %}{% endblock %}
 </head>
 
 <body>
 
-<header class="navbar">
+<header class="site-header">
+    <div class="container navbar-container">
 
-    <div class="container">
+        <a
+            href="{% url 'landing_page' %}"
+            class="brand"
+            aria-label="YourAIInvoice home"
+        >
+            <span class="brand-icon">YAI</span>
 
-        <div class="logo">
+            <span class="brand-content">
+                <strong>YourAIInvoice</strong>
+                <small>AI invoicing</small>
+            </span>
+        </a>
 
-            <a href="{% url 'landing_page' %}">
-                AI Invoice SaaS
-            </a>
-
-        </div>
-
-        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Open navigation menu">
-            <span></span><span></span><span></span>
+        <button
+            type="button"
+            class="mobile-menu-button"
+            id="mobileMenuButton"
+            aria-label="Open navigation"
+            aria-controls="mainNavigation"
+            aria-expanded="false"
+        >
+            <span></span>
+            <span></span>
+            <span></span>
         </button>
 
-        {% if request.user.is_authenticated %}
+        <div
+            class="navigation-wrapper"
+            id="mainNavigation"
+        >
+            {% if request.user.is_authenticated %}
 
-            <nav id="primary-navigation" class="primary-navigation">
-
-                <ul class="nav-links">
-
-                    <li>
-                        <a href="{% url 'dashboard' %}">
-                            Dashboard
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{% url 'client_list' %}">
-                            Clients
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{% url 'invoice_list' %}">
-                            Invoices
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{% url 'ai_generate_invoice' %}">
-                            AI Invoice
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{% url 'pricing' %}">
-                            Pricing
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{% url 'account_settings' %}">
-                            Settings
-                        </a>
-                    </li>
-
-                </ul>
-
-            </nav>
-
-            <div class="user-menu">
-
-                <span class="username">
-                    {{ request.user.username }}
-                </span>
-
-                <form
-                    method="post"
-                    action="{% url 'logout' %}"
+                <nav
+                    class="main-navigation"
+                    aria-label="Main navigation"
                 >
-
-                    {% csrf_token %}
-
-                    <button
-                        type="submit"
-                        class="btn btn-danger btn-small"
+                    <a
+                        href="{% url 'dashboard' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
                     >
-                        Logout
-                    </button>
+                        Dashboard
+                    </a>
 
-                </form>
+                    <a
+                        href="{% url 'client_list' %}"
+                        class="nav-link {% if 'client' in request.resolver_match.url_name %}active{% endif %}"
+                    >
+                        Clients
+                    </a>
 
-            </div>
+                    <a
+                        href="{% url 'invoice_list' %}"
+                        class="nav-link {% if 'invoice' in request.resolver_match.url_name and request.resolver_match.url_name != 'ai_generate_invoice' %}active{% endif %}"
+                    >
+                        Invoices
+                    </a>
 
-        {% else %}
+                    <a
+                        href="{% url 'ai_generate_invoice' %}"
+                        class="nav-link nav-link-ai {% if request.resolver_match.url_name == 'ai_generate_invoice' %}active{% endif %}"
+                    >
+                        <span class="nav-sparkle">✦</span>
+                        AI Invoice
+                    </a>
 
-            <nav id="primary-navigation" class="primary-navigation">
+                    <a
+                        href="{% url 'pricing' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'pricing' %}active{% endif %}"
+                    >
+                        Pricing
+                    </a>
+                </nav>
 
-                <ul class="nav-links">
+                <div class="account-navigation">
+                    <a
+                        href="{% url 'account_settings' %}"
+                        class="user-profile-link"
+                    >
+                        <span class="user-avatar">
+                            {{ request.user.username|first|upper }}
+                        </span>
 
-                    <li>
-                        <a href="{% url 'landing_page' %}">
-                            Home
-                        </a>
-                    </li>
+                        <span class="user-profile-text">
+                            <strong>
+                                {{ request.user.get_full_name|default:request.user.username }}
+                            </strong>
 
-                    <li>
-                        <a href="{% url 'pricing' %}">
-                            Pricing
-                        </a>
-                    </li>
+                            <small>
+                                Account settings
+                            </small>
+                        </span>
+                    </a>
 
-                    <li>
-                        <a href="{% url 'login' %}">
-                            Login
-                        </a>
-                    </li>
+                    <form
+                        method="post"
+                        action="{% url 'logout' %}"
+                        class="logout-form"
+                    >
+                        {% csrf_token %}
 
-                    <li>
-                        <a href="{% url 'register' %}">
-                            Register
-                        </a>
-                    </li>
+                        <button
+                            type="submit"
+                            class="btn btn-ghost btn-small"
+                        >
+                            Logout
+                        </button>
+                    </form>
+                </div>
 
-                </ul>
+            {% else %}
 
-            </nav>
+                <nav
+                    class="main-navigation public-navigation"
+                    aria-label="Public navigation"
+                >
+                    <a
+                        href="{% url 'landing_page' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'landing_page' %}active{% endif %}"
+                    >
+                        Home
+                    </a>
 
-        {% endif %}
+                    <a
+                        href="{% url 'pricing' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'pricing' %}active{% endif %}"
+                    >
+                        Pricing
+                    </a>
+                </nav>
 
+                <div class="public-actions">
+                    <a
+                        href="{% url 'login' %}"
+                        class="btn btn-ghost"
+                    >
+                        Log in
+                    </a>
+
+                    <a
+                        href="{% url 'register' %}"
+                        class="btn btn-primary"
+                    >
+                        Start free
+                    </a>
+                </div>
+
+            {% endif %}
+        </div>
     </div>
-
 </header>
 
-<main class="container">
-
-    {% if messages %}
-
-        {% for message in messages %}
-
-            <div class="alert alert-{{ message.tags }}">
-
-                {{ message }}
-
-            </div>
-
-        {% endfor %}
-
-    {% endif %}
-
-    {% block content %}
-
-    {% endblock %}
-
-</main>
-
-<footer class="footer">
-
+<main class="main-content">
     <div class="container">
 
-        <p>
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div
+                        class="alert alert-{{ message.tags }}"
+                        role="alert"
+                    >
+                        <span class="alert-content">
+                            {{ message }}
+                        </span>
 
-            © {% now "Y" %}
+                        <button
+                            type="button"
+                            class="alert-close"
+                            aria-label="Close message"
+                            onclick="this.parentElement.remove()"
+                        >
+                            ×
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
 
-            AI Invoice SaaS.
+        {% block content %}
+        {% endblock %}
 
-            All Rights Reserved.
+    </div>
+</main>
 
+<footer class="site-footer">
+    <div class="container footer-content">
+
+        <div>
+            <a
+                href="{% url 'landing_page' %}"
+                class="footer-brand"
+            >
+                YourAIInvoice
+            </a>
+
+            <p>
+                Simple, professional invoicing powered by AI.
+            </p>
+        </div>
+
+        <div class="footer-links">
+            <a href="{% url 'pricing' %}">
+                Pricing
+            </a>
+
+            {% if request.user.is_authenticated %}
+                <a href="{% url 'dashboard' %}">
+                    Dashboard
+                </a>
+            {% else %}
+                <a href="{% url 'login' %}">
+                    Login
+                </a>
+            {% endif %}
+        </div>
+
+        <p class="footer-copyright">
+            © {% now "Y" %} YourAIInvoice
         </p>
 
     </div>
-
 </footer>
 
-<script src="{% static 'js/app.js' %}"></script>
-{% block scripts %}{% endblock %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const menuButton = document.getElementById("mobileMenuButton");
+        const navigation = document.getElementById("mainNavigation");
+
+        if (!menuButton || !navigation) {
+            return;
+        }
+
+        function closeMenu() {
+            navigation.classList.remove("is-open");
+            menuButton.classList.remove("is-active");
+            menuButton.setAttribute("aria-expanded", "false");
+            document.body.classList.remove("menu-open");
+        }
+
+        menuButton.addEventListener("click", function () {
+            const isOpen = navigation.classList.toggle("is-open");
+
+            menuButton.classList.toggle("is-active", isOpen);
+            menuButton.setAttribute("aria-expanded", String(isOpen));
+            document.body.classList.toggle("menu-open", isOpen);
+        });
+
+        navigation.querySelectorAll("a").forEach(function (link) {
+            link.addEventListener("click", closeMenu);
+        });
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape") {
+                closeMenu();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            if (window.innerWidth > 900) {
+                closeMenu();
+            }
+        });
+    });
+</script>
+
+{% block extra_js %}{% endblock %}
 
 </body>
-
 </html>

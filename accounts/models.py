@@ -11,27 +11,9 @@ class User(AbstractUser):
         ("GBP", "GBP — British Pound"),
         ("CAD", "CAD — Canadian Dollar"),
         ("AUD", "AUD — Australian Dollar"),
-        ("NZD", "NZD — New Zealand Dollar"),
-
-        ("HKD", "HKD — Hong Kong Dollar"),
-        ("SGD", "SGD — Singapore Dollar"),
-        ("JPY", "JPY — Japanese Yen"),
-        ("CNY", "CNY — Chinese Yuan"),
-
         ("PKR", "PKR — Pakistani Rupee"),
         ("INR", "INR — Indian Rupee"),
-        ("BDT", "BDT — Bangladeshi Taka"),
-
         ("AED", "AED — UAE Dirham"),
-        ("SAR", "SAR — Saudi Riyal"),
-        ("QAR", "QAR — Qatari Riyal"),
-
-        ("CHF", "CHF — Swiss Franc"),
-        ("SEK", "SEK — Swedish Krona"),
-        ("NOK", "NOK — Norwegian Krone"),
-        ("DKK", "DKK — Danish Krone"),
-
-        ("ZAR", "ZAR — South African Rand"),
     ]
 
     email = models.EmailField(
@@ -75,8 +57,4 @@ class User(AbstractUser):
 
     @property
     def display_company_name(self):
-        return (
-            self.company_name
-            or self.get_full_name()
-            or self.username
-        )
+        return self.company_name or self.get_full_name() or self.username
