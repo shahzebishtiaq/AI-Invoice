@@ -5,68 +5,78 @@ Login
 {% endblock %}
 
 {% block content %}
+
 <div class="auth-container">
     <div class="auth-card">
         <h1>Welcome back</h1>
 
-        <p class="text-muted">
-            Log in to manage your invoices.
-        </p>
+```
+    <p class="text-muted">
+        Log in to manage your invoices.
+    </p>
 
-        <form method="post">
-            {% csrf_token %}
+    <form method="post">
+        {% csrf_token %}
 
-            {% if form.non_field_errors %}
-                <div class="alert alert-error">
-                    {% for error in form.non_field_errors %}
-                        <p>{{ error }}</p>
-                    {% endfor %}
-                </div>
-            {% endif %}
-
-            <div class="form-group">
-                <label for="{{ form.username.id_for_label }}">
-                    Username
-                </label>
-
-                {{ form.username }}
-
-                {% for error in form.username.errors %}
-                    <small class="error-text">
-                        {{ error }}
-                    </small>
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
                 {% endfor %}
             </div>
+        {% endif %}
 
-            <div class="form-group">
-                <label for="{{ form.password.id_for_label }}">
-                    Password
-                </label>
+        <div class="form-group">
+            <label for="{{ form.username.id_for_label }}">
+                Username
+            </label>
 
-                {{ form.password }}
+            {{ form.username }}
 
-                {% for error in form.password.errors %}
-                    <small class="error-text">
-                        {{ error }}
-                    </small>
-                {% endfor %}
-            </div>
+            {% for error in form.username.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
 
-            <button
-                type="submit"
-                class="btn btn-primary btn-full"
-            >
-                Log in
-            </button>
-        </form>
+        <div class="form-group">
+            <label for="{{ form.password.id_for_label }}">
+                Password
+            </label>
 
-        <p class="auth-link">
-            Do not have an account?
+            {{ form.password }}
 
-            <a href="{% url 'register' %}">
-                Create one
+            {% for error in form.password.errors %}
+                <small class="error-text">
+                    {{ error }}
+                </small>
+            {% endfor %}
+        </div>
+
+        <div style="text-align: right; margin: -8px 0 18px;">
+            <a href="{% url 'password_reset' %}">
+                Forgot your password?
             </a>
-        </p>
-    </div>
+        </div>
+
+        <button
+            type="submit"
+            class="btn btn-primary btn-full"
+        >
+            Log in
+        </button>
+    </form>
+
+    <p class="auth-link">
+        Do not have an account?
+
+        <a href="{% url 'register' %}">
+            Create one
+        </a>
+    </p>
+</div>
+```
+
 </div>
 {% endblock %}
