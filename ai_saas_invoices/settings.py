@@ -165,7 +165,17 @@ USE_TZ = True
 # ---------------------------------------------------------
 # Static files
 # ---------------------------------------------------------
-
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage."
+            "CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
 STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [
