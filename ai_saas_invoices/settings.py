@@ -303,3 +303,7 @@ STRIPE_PRO_PRICE_ID = os.getenv(
     "STRIPE_PRO_PRICE_ID",
     "",
 )
+AI_DEMO_MODE = os.getenv(
+    "AI_DEMO_MODE",
+    "False",
+).lower() == "true"

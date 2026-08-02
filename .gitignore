@@ -22,3 +22,4 @@ staticfiles/
 # Generated project exports
 project_code.txt
 project_code*.txt
+db_before_promo_backup.sqlite3
