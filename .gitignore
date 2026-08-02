@@ -1,11 +1,24 @@
-__pycache__/
-*.pyc
-db.sqlite3
+# Environment variables
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
 venv/
-.env.*
-*.log
+.venv/
+env/
+
+# Django
+db.sqlite3
 media/
 staticfiles/
+
+# PyCharm
 .idea/
+
+# Generated project exports
 project_code.txt
+project_code*.txt

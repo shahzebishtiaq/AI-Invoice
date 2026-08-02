@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}
+Pricing — YourAIInvoice
+{% endblock %}
+
+{% block content %}
+
+<section class="pricing-page-header">
+    <span class="section-label">
+        Pricing
+    </span>
+
+```
+<h1>
+    Simple plans for every business
+</h1>
+
+<p>
+    Start free and upgrade when you need unlimited invoices.
+</p>
+```
+
+</section>
+
+<div class="pricing-grid pricing-page-grid">
+
+```
+<div class="pricing-card">
+    <span class="pricing-name">
+        Free
+    </span>
+
+    <div class="pricing-price">
+        <strong>$0</strong>
+        <span>/month</span>
+    </div>
+
+    <p class="text-muted">
+        Ideal for testing the platform and sending your first invoices.
+    </p>
+
+    <ul class="pricing-features">
+        <li>Up to 5 invoices</li>
+        <li>AI invoice generation</li>
+        <li>Client management</li>
+        <li>PDF invoice downloads</li>
+        <li>Email invoice delivery</li>
+        <li>Invoice status tracking</li>
+    </ul>
+
+    {% if request.user.is_authenticated %}
+
+        {% if subscription.plan == "free" %}
+            <button
+                type="button"
+                class="btn btn-secondary pricing-button"
+                disabled
+            >
+                Current plan
+            </button>
+        {% else %}
+            <a
+                href="{% url 'dashboard' %}"
+                class="btn btn-secondary pricing-button"
+            >
+                View dashboard
+            </a>
+        {% endif %}
+
+    {% else %}
+        <a
+            href="{% url 'register' %}"
+            class="btn btn-secondary pricing-button"
+        >
+            Start free
+        </a>
+    {% endif %}
+</div>
+
+<div class="pricing-card featured-pricing">
+    <span class="pricing-badge">
+        Recommended
+    </span>
+
+    <span class="pricing-name">
+        Pro
+    </span>
+
+    <div class="pricing-price">
+        <strong>$15</strong>
+        <span>/month</span>
+    </div>
+
+    <p class="text-muted">
+        Built for freelancers and businesses that invoice regularly.
+    </p>
+
+    <ul class="pricing-features">
+        <li>Unlimited invoices</li>
+        <li>Unlimited AI invoice generation</li>
+        <li>Unlimited clients</li>
+        <li>PDF invoice downloads</li>
+        <li>Email invoice delivery</li>
+        <li>Revenue dashboard</li>
+        <li>Priority support</li>
+    </ul>
+
+    {% if request.user.is_authenticated %}
+
+        {% if subscription.plan == "pro" and subscription.is_active %}
+            <div class="pricing-actions">
+                <button
+                    type="button"
+                    class="btn btn-primary pricing-button"
+                    disabled
+                >
+                    Current plan
+                </button>
+
+                <form
+                    method="post"
+                    action="{% url 'subscription_portal' %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="btn btn-secondary pricing-button"
+                    >
+                        Manage billing
+                    </button>
+                </form>
+            </div>
+        {% else %}
+            <form
+                method="post"
+                action="{% url 'subscription_checkout' %}"
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="btn btn-primary pricing-button"
+                >
+                    Upgrade to Pro
+                </button>
+            </form>
+        {% endif %}
+
+    {% else %}
+        <a
+            href="{% url 'register' %}"
+            class="btn btn-primary pricing-button"
+        >
+            Create account
+        </a>
+    {% endif %}
+</div>
+```
+
+</div>
+
+<section class="pricing-faq">
+    <div class="section-heading">
+        <span class="section-label">
+            FAQ
+        </span>
+
+```
+    <h2>
+        Frequently asked questions
+    </h2>
+</div>
+
+<div class="faq-grid">
+    <div class="faq-card">
+        <h3>
+            Can I start without a credit card?
+        </h3>
+
+        <p>
+            Yes. The Free plan allows you to create up to five invoices
+            without entering payment information.
+        </p>
+    </div>
+
+    <div class="faq-card">
+        <h3>
+            What happens after five invoices?
+        </h3>
+
+        <p>
+            Your existing invoices remain available, but you must upgrade
+            to Pro before creating more.
+        </p>
+    </div>
+
+    <div class="faq-card">
+        <h3>
+            Can I cancel the Pro plan?
+        </h3>
+
+        <p>
+            Yes. Pro users can open the billing portal to manage or cancel
+            their subscription.
+        </p>
+    </div>
+
+    <div class="faq-card">
+        <h3>
+            Are PDF and email features included?
+        </h3>
+
+        <p>
+            Yes. Both plans support PDF downloads and sending invoices by
+            email.
+        </p>
+    </div>
+</div>
+```
+
+</section>
+
+{% endblock %}

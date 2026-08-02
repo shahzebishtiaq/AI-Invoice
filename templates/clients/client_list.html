@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}
+Clients
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Clients</h1>
+        <p class="text-muted">
+            Manage the customers who receive your invoices.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'client_create' %}"
+        class="btn btn-primary"
+    >
+        Add client
+    </a>
+</div>
+
+<div class="card">
+    <form
+        method="get"
+        class="search-form"
+    >
+        <input
+            type="search"
+            name="q"
+            value="{{ query }}"
+            placeholder="Search by name, email, company, or phone"
+            class="form-control"
+        >
+
+        <button
+            type="submit"
+            class="btn btn-secondary"
+        >
+            Search
+        </button>
+
+        {% if query %}
+            <a
+                href="{% url 'client_list' %}"
+                class="btn btn-light"
+            >
+                Clear
+            </a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card">
+    {% if clients %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Company</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for client in clients %}
+                        <tr>
+                            <td>
+                                <a
+                                    href="{% url 'client_detail' client.pk %}"
+                                >
+                                    {{ client.name }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {{ client.company_name|default:"—" }}
+                            </td>
+
+                            <td>
+                                {{ client.email }}
+                            </td>
+
+                            <td>
+                                {{ client.phone|default:"—" }}
+                            </td>
+
+                            <td>
+                                {{ client.created_at|date:"M d, Y" }}
+                            </td>
+
+                            <td>
+                                <a
+                                    href="{% url 'client_update' client.pk %}"
+                                    class="btn btn-small btn-secondary"
+                                >
+                                    Edit
+                                </a>
+
+                                <a
+                                    href="{% url 'client_delete' client.pk %}"
+                                    class="btn btn-small btn-danger"
+                                >
+                                    Delete
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            {% if query %}
+                <h2>No clients found</h2>
+
+                <p>
+                    No client matched “{{ query }}”.
+                </p>
+            {% else %}
+                <h2>No clients yet</h2>
+
+                <p>
+                    Add your first client before creating an invoice.
+                </p>
+
+                <a
+                    href="{% url 'client_create' %}"
+                    class="btn btn-primary"
+                >
+                    Add your first client
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

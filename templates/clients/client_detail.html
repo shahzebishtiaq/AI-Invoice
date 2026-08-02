@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ client.name }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ client.name }}</h1>
+
+        {% if client.company_name %}
+            <p class="text-muted">
+                {{ client.company_name }}
+            </p>
+        {% endif %}
+    </div>
+
+    <div class="button-group">
+        <a
+            href="{% url 'client_update' client.pk %}"
+            class="btn btn-secondary"
+        >
+            Edit client
+        </a>
+
+        <a
+            href="{% url 'client_delete' client.pk %}"
+            class="btn btn-danger"
+        >
+            Delete
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Contact information</h2>
+
+    <dl class="details-list">
+        <div>
+            <dt>Email</dt>
+
+            <dd>
+                <a href="mailto:{{ client.email }}">
+                    {{ client.email }}
+                </a>
+            </dd>
+        </div>
+
+        <div>
+            <dt>Phone</dt>
+
+            <dd>
+                {{ client.phone|default:"Not provided" }}
+            </dd>
+        </div>
+
+        <div>
+            <dt>Address</dt>
+
+            <dd>
+                {% if client.address %}
+                    {{ client.address|linebreaksbr }}
+                {% else %}
+                    Not provided
+                {% endif %}
+            </dd>
+        </div>
+
+        <div>
+            <dt>Created</dt>
+
+            <dd>
+                {{ client.created_at|date:"F d, Y" }}
+            </dd>
+        </div>
+    </dl>
+</div>
+
+{% if client.notes %}
+    <div class="card">
+        <h2>Notes</h2>
+
+        <p>
+            {{ client.notes|linebreaksbr }}
+        </p>
+    </div>
+{% endif %}
+
+<div class="form-actions">
+    <a
+        href="{% url 'client_list' %}"
+        class="btn btn-light"
+    >
+        Back to clients
+    </a>
+</div>
+{% endblock %}

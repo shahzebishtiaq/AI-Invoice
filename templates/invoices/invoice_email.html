@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice {{ invoice.invoice_number }}</title>
+</head>
+<body>
+
+    <p>Hello {{ invoice.client.name }},</p>
+
+    <p>
+        Please find attached invoice
+        <strong>{{ invoice.invoice_number }}</strong>.
+    </p>
+
+    <p>
+        Total amount:
+        <strong>
+            {{ invoice.user.default_currency }}
+            {{ invoice.total }}
+        </strong>
+    </p>
+
+    {% if invoice.due_date %}
+        <p>
+            Due date: {{ invoice.due_date }}
+        </p>
+    {% endif %}
+
+    {% if invoice.notes %}
+        <p>
+            {{ invoice.notes }}
+        </p>
+    {% endif %}
+
+    <p>
+        Thank you.
+    </p>
+
+    <p>
+        {{ invoice.user.display_company_name }}
+    </p>
+
+</body>
+</html>

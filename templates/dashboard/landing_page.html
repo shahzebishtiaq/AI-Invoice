@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}
+YourAIInvoice — Create Professional Invoices
+{% endblock %}
+
+{% block content %}
+
+<section class="hero-section">
+    <div class="hero-content">
+        <span class="hero-badge">
+            AI-powered invoicing for freelancers
+        </span>
+
+        <h1>
+            Create professional invoices in seconds
+        </h1>
+
+        <p class="hero-description">
+            Generate invoices with AI, manage clients,
+            download polished PDFs, and send invoices
+            directly by email.
+        </p>
+
+        <div class="button-group hero-buttons">
+            <a
+                href="{% url 'register' %}"
+                class="btn btn-primary btn-large"
+            >
+                Start for free
+            </a>
+
+            <a
+                href="#features"
+                class="btn btn-secondary btn-large"
+            >
+                Explore features
+            </a>
+        </div>
+
+        <p class="hero-note">
+            No credit card required. Create up to five
+            invoices on the free plan.
+        </p>
+    </div>
+
+    <div class="hero-preview">
+        <div class="preview-window">
+            <div class="preview-header">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
+            <div class="preview-content">
+                <div class="preview-title">
+                    Invoice Dashboard
+                </div>
+
+                <div class="preview-stats">
+                    <div class="preview-stat">
+                        <span>Paid revenue</span>
+                        <strong>USD 4,250</strong>
+                    </div>
+
+                    <div class="preview-stat">
+                        <span>Invoices</span>
+                        <strong>18</strong>
+                    </div>
+                </div>
+
+                <div class="preview-invoice">
+                    <div>
+                        <strong>INV-202607-0018</strong>
+                        <span>Website development</span>
+                    </div>
+
+                    <strong>USD 1,200</strong>
+                </div>
+
+                <div class="preview-invoice">
+                    <div>
+                        <strong>INV-202607-0017</strong>
+                        <span>SEO consulting</span>
+                    </div>
+
+                    <strong>USD 650</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section
+    class="landing-section"
+    id="features"
+>
+    <div class="section-heading">
+        <span class="section-label">
+            Features
+        </span>
+
+        <h2>
+            Everything you need to manage invoices
+        </h2>
+
+        <p>
+            Spend less time preparing invoices and more
+            time growing your business.
+        </p>
+    </div>
+
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="feature-icon">
+                AI
+            </div>
+
+            <h3>
+                AI invoice generator
+            </h3>
+
+            <p>
+                Describe your work and let AI generate
+                professional invoice line items.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">
+                PDF
+            </div>
+
+            <h3>
+                PDF invoices
+            </h3>
+
+            <p>
+                Create polished PDF invoices containing
+                your company and client information.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">
+                @
+            </div>
+
+            <h3>
+                Email delivery
+            </h3>
+
+            <p>
+                Send invoices directly to clients with
+                the PDF automatically attached.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">
+                $
+            </div>
+
+            <h3>
+                Revenue tracking
+            </h3>
+
+            <p>
+                Track paid, unpaid, overdue, and draft
+                invoice totals from one dashboard.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">
+                C
+            </div>
+
+            <h3>
+                Client management
+            </h3>
+
+            <p>
+                Store client contact information and
+                quickly create new invoices.
+            </p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">
+                ✓
+            </div>
+
+            <h3>
+                Invoice status
+            </h3>
+
+            <p>
+                Keep track of draft, sent, paid,
+                overdue, and cancelled invoices.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="landing-section pricing-preview">
+    <div class="section-heading">
+        <span class="section-label">
+            Simple pricing
+        </span>
+
+        <h2>
+            Start free and upgrade as you grow
+        </h2>
+
+        <p>
+            No complicated pricing or hidden fees.
+        </p>
+    </div>
+
+    <div class="pricing-grid">
+        <div class="pricing-card">
+            <span class="pricing-name">
+                Free
+            </span>
+
+            <div class="pricing-price">
+                <strong>$0</strong>
+                <span>/month</span>
+            </div>
+
+            <ul class="pricing-features">
+                <li>5 invoices</li>
+                <li>AI invoice generation</li>
+                <li>PDF downloads</li>
+                <li>Email delivery</li>
+                <li>Client management</li>
+            </ul>
+
+            <a
+    href="{% url 'pricing' %}"
+    class="btn btn-secondary pricing-button"
+>
+    View pricing
+</a>
+        </div>
+
+        <div class="pricing-card featured-pricing">
+            <span class="pricing-badge">
+                Most popular
+            </span>
+
+            <span class="pricing-name">
+                Pro
+            </span>
+
+            <div class="pricing-price">
+                <strong>$15</strong>
+                <span>/month</span>
+            </div>
+
+            <ul class="pricing-features">
+                <li>Unlimited invoices</li>
+                <li>Unlimited AI generation</li>
+                <li>PDF downloads</li>
+                <li>Email delivery</li>
+                <li>Priority support</li>
+            </ul>
+
+           <a
+    href="{% url 'pricing' %}"
+    class="btn btn-primary pricing-button"
+>
+    View Pro plan
+</a>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section">
+    <div>
+        <h2>
+            Ready to simplify your invoicing?
+        </h2>
+
+        <p>
+            Create your free account and send your first
+            professional invoice today.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'register' %}"
+        class="btn btn-primary btn-large"
+    >
+        Create free account
+    </a>
+</section>
+
+{% endblock %}

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title>
+        {{ invoice.invoice_number }}
+    </title>
+
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 12px;
+            color: #222222;
+        }
+
+        .header-table {
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .header-table td {
+            vertical-align: top;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .company-logo {
+            max-width: 120px;
+            max-height: 70px;
+            margin-bottom: 10px;
+        }
+
+        .details-table {
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .details-table td {
+            width: 50%;
+            vertical-align: top;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .items-table th {
+            padding: 8px;
+            background-color: #eeeeee;
+            border: 1px solid #cccccc;
+            text-align: left;
+        }
+
+        .items-table td {
+            padding: 8px;
+            border: 1px solid #cccccc;
+        }
+
+        .totals-table {
+            width: 40%;
+            margin-top: 20px;
+            margin-left: 60%;
+        }
+
+        .totals-table td {
+            padding: 6px;
+        }
+
+        .total-row {
+            font-size: 15px;
+            font-weight: bold;
+            border-top: 2px solid #222222;
+        }
+
+        .notes {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+
+<body>
+
+<table class="header-table">
+    <tr>
+        <td>
+            <h1>INVOICE</h1>
+
+            {% if invoice.user.company_logo %}
+                <img
+                    src="{{ invoice.user.company_logo.path }}"
+                    class="company-logo"
+                    alt="Company logo"
+                >
+                <br>
+            {% endif %}
+
+            <strong>
+                {{ invoice.user.display_company_name }}
+            </strong>
+
+            <br>
+
+            {{ invoice.user.email }}
+
+            {% if invoice.user.phone_number %}
+                <br>
+                {{ invoice.user.phone_number }}
+            {% endif %}
+
+            {% if invoice.user.company_address %}
+                <br>
+                {{ invoice.user.company_address|linebreaksbr }}
+            {% endif %}
+        </td>
+
+        <td class="right">
+            <strong>
+                {{ invoice.invoice_number }}
+            </strong>
+
+            <br>
+
+            Issue date:
+            {{ invoice.issue_date|date:"F d, Y" }}
+
+            {% if invoice.due_date %}
+                <br>
+
+                Due date:
+                {{ invoice.due_date|date:"F d, Y" }}
+            {% endif %}
+
+            <br>
+
+            Status:
+            {{ invoice.get_status_display }}
+        </td>
+    </tr>
+</table>
+
+<table class="details-table">
+    <tr>
+        <td>
+            <h2>Bill to</h2>
+
+            <strong>
+                {{ invoice.client.name }}
+            </strong>
+
+            {% if invoice.client.company_name %}
+                <br>
+                {{ invoice.client.company_name }}
+            {% endif %}
+
+            <br>
+            {{ invoice.client.email }}
+
+            {% if invoice.client.phone %}
+                <br>
+                {{ invoice.client.phone }}
+            {% endif %}
+
+            {% if invoice.client.address %}
+                <br>
+                {{ invoice.client.address|linebreaksbr }}
+            {% endif %}
+        </td>
+    </tr>
+</table>
+
+<table class="items-table">
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Unit price</th>
+            <th>Total</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for item in invoice.items.all %}
+            <tr>
+                <td>
+                    {{ item.description }}
+                </td>
+
+                <td>
+                    {{ item.quantity|floatformat:2 }}
+                </td>
+
+                <td>
+                    {{ invoice.user.default_currency }}
+                    {{ item.unit_price|floatformat:2 }}
+                </td>
+
+                <td>
+                    {{ invoice.user.default_currency }}
+                    {{ item.line_total|floatformat:2 }}
+                </td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="4">
+                    No invoice items found.
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<table class="totals-table">
+    <tr>
+        <td>
+            Subtotal
+        </td>
+
+        <td class="right">
+            {{ invoice.user.default_currency }}
+            {{ invoice.subtotal|floatformat:2 }}
+        </td>
+    </tr>
+
+    <tr>
+        <td>
+            Tax ({{ invoice.tax_rate|floatformat:2 }}%)
+        </td>
+
+        <td class="right">
+            {{ invoice.user.default_currency }}
+            {{ invoice.tax_amount|floatformat:2 }}
+        </td>
+    </tr>
+
+    <tr class="total-row">
+        <td>
+            Total
+        </td>
+
+        <td class="right">
+            {{ invoice.user.default_currency }}
+            {{ invoice.total|floatformat:2 }}
+        </td>
+    </tr>
+</table>
+
+{% if invoice.notes %}
+    <div class="notes">
+        <h2>Notes</h2>
+
+        <p>
+            {{ invoice.notes|linebreaksbr }}
+        </p>
+    </div>
+{% endif %}
+
+</body>
+</html>
