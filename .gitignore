@@ -7,3 +7,5 @@ venv/
 *.log
 media/
 staticfiles/
+.idea/
+project_code.txt
