@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://youraiinvoice.com/sitemap.xml
