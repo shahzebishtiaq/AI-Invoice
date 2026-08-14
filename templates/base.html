@@ -3,6 +3,8 @@
 
 <head>
 
+    {% load static %}
+
     <meta charset="UTF-8">
 
     <meta
@@ -12,16 +14,103 @@
 
     <title>
         {% block title %}
-            YourAIInvoice
+            YourAIInvoice — AI Invoice Generator
         {% endblock %}
     </title>
 
-    {% load static %}
+    <meta
+        name="description"
+        content="{% block meta_description %}Create professional invoices with YourAIInvoice. Generate invoice items with AI, manage clients, download PDFs and send invoices by email.{% endblock %}"
+    >
+
+    <meta
+        name="keywords"
+        content="YourAIInvoice, AI invoice generator, online invoice maker, professional invoices, PDF invoices, freelancer invoicing"
+    >
+
+    <meta name="author" content="YourAIInvoice">
+    <meta name="application-name" content="YourAIInvoice">
+    <meta name="robots" content="index, follow">
+
+    <link
+        rel="canonical"
+        href="https://youraiinvoice.com{{ request.path }}"
+    >
+
+    <!-- Open Graph metadata -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="YourAIInvoice">
+
+    <meta
+        property="og:title"
+        content="YourAIInvoice — AI Invoice Generator"
+    >
+
+    <meta
+        property="og:description"
+        content="Create professional invoices with AI, manage clients, download polished PDFs and send invoices by email."
+    >
+
+    <meta
+        property="og:url"
+        content="https://youraiinvoice.com{{ request.path }}"
+    >
+
+    <!-- X/Twitter metadata -->
+    <meta name="twitter:card" content="summary">
+
+    <meta
+        name="twitter:title"
+        content="YourAIInvoice — AI Invoice Generator"
+    >
+
+    <meta
+        name="twitter:description"
+        content="Generate professional invoices with AI and send polished PDF invoices to your clients."
+    >
 
     <link
         rel="stylesheet"
         href="{% static 'css/style.css' %}"
     >
+
+    <!-- Structured data for Google -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "YourAIInvoice",
+        "alternateName": "Your AI Invoice",
+        "url": "https://youraiinvoice.com/",
+        "description": "An AI-powered invoice generator for freelancers and businesses."
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "YourAIInvoice",
+        "url": "https://youraiinvoice.com/",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "description": "Create AI-assisted invoices, manage clients, download PDF invoices and send invoices by email.",
+        "offers": [
+            {
+                "@type": "Offer",
+                "name": "Free",
+                "price": "0",
+                "priceCurrency": "USD"
+            },
+            {
+                "@type": "Offer",
+                "name": "Pro",
+                "price": "15",
+                "priceCurrency": "USD"
+            }
+        ]
+    }
+    </script>
 
 </head>
 
@@ -33,19 +122,34 @@
 
         <div class="logo">
 
-            <a href="{% url 'landing_page' %}">
+            <a
+                href="{% url 'landing_page' %}"
+                aria-label="YourAIInvoice homepage"
+            >
                 YourAIInvoice
             </a>
 
         </div>
 
-        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Open navigation menu">
-            <span></span><span></span><span></span>
+        <button
+            class="nav-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="primary-navigation"
+            aria-label="Open navigation menu"
+        >
+            <span></span>
+            <span></span>
+            <span></span>
         </button>
 
         {% if request.user.is_authenticated %}
 
-            <nav id="primary-navigation" class="primary-navigation">
+            <nav
+                id="primary-navigation"
+                class="primary-navigation"
+                aria-label="Primary navigation"
+            >
 
                 <ul class="nav-links">
 
@@ -115,7 +219,11 @@
 
         {% else %}
 
-            <nav id="primary-navigation" class="primary-navigation">
+            <nav
+                id="primary-navigation"
+                class="primary-navigation"
+                aria-label="Primary navigation"
+            >
 
                 <ul class="nav-links">
 
@@ -170,7 +278,6 @@
     {% endif %}
 
     {% block content %}
-
     {% endblock %}
 
 </main>
@@ -180,13 +287,9 @@
     <div class="container">
 
         <p>
-
             © {% now "Y" %}
-
-            AI Invoice SaaS.
-
+            YourAIInvoice.
             All Rights Reserved.
-
         </p>
 
     </div>
@@ -194,7 +297,9 @@
 </footer>
 
 <script src="{% static 'js/app.js' %}"></script>
-{% block scripts %}{% endblock %}
+
+{% block scripts %}
+{% endblock %}
 
 </body>
 
