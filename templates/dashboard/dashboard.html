@@ -57,10 +57,26 @@ Dashboard
                 {{ subscription.get_plan_display }}
             </strong>
 
-            {% if subscription.is_active %}
+            {% if subscription.status == "active" %}
                 <span class="text-muted">
                     Active subscription
                 </span>
+
+            {% elif subscription.status == "past_due" %}
+                <span class="status status-warning">
+                    Payment failed — update your payment method
+                </span>
+
+            {% elif subscription.status == "cancelled" %}
+                <span class="text-muted">
+                    Subscription cancelled
+                </span>
+
+            {% elif subscription.status == "expired" %}
+                <span class="text-muted">
+                    Subscription expired
+                </span>
+
             {% else %}
                 <span class="text-muted">
                     Subscription inactive
@@ -119,6 +135,13 @@ Dashboard
         </div>
 
     </div>
+
+    {% if subscription.status == "past_due" %}
+        <div class="alert alert-warning">
+            Your latest subscription payment failed.
+            Please update your payment method to keep Pro access.
+        </div>
+    {% endif %}
 
     {% if invoice_limit and remaining_invoices == 0 %}
         <div class="alert alert-warning">
