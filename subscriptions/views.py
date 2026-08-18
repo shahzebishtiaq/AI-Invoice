@@ -27,6 +27,22 @@ from .services import get_user_subscription
 logger = logging.getLogger(__name__)
 
 
+def stripe_value(obj, key, default=None):
+    """Safely read a value from a dict or StripeObject."""
+    if obj is None:
+        return default
+
+    if isinstance(obj, dict):
+        value = obj.get(key, default)
+    else:
+        value = getattr(obj, key, default)
+
+    if value is None:
+        return default
+
+    return value
+
+
 def configure_stripe():
     secret_key = settings.STRIPE_SECRET_KEY.strip()
 
@@ -222,7 +238,6 @@ def create_checkout_session(request):
 
 
 @login_required
-@login_required
 def stripe_checkout_success(request):
     session_id = request.GET.get(
         "session_id",
@@ -251,11 +266,15 @@ def stripe_checkout_success(request):
             ],
         )
 
+        metadata = stripe_value(
+            checkout_session,
+            "metadata",
+            {},
+        )
+
         session_user_id = str(
-            checkout_session.get(
-                "metadata",
-                {},
-            ).get(
+            stripe_value(
+                metadata,
                 "user_id",
                 "",
             )
@@ -277,13 +296,16 @@ def stripe_checkout_success(request):
                 "pricing"
             )
 
-        payment_status = checkout_session.get(
+        payment_status = stripe_value(
+            checkout_session,
             "payment_status",
             "",
         )
 
-        stripe_subscription = checkout_session.get(
-            "subscription"
+        stripe_subscription = stripe_value(
+            checkout_session,
+            "subscription",
+            None,
         )
 
         if (
@@ -312,14 +334,16 @@ def stripe_checkout_success(request):
             )
 
             subscription.stripe_checkout_session_id = (
-                checkout_session.get(
+                stripe_value(
+                    checkout_session,
                     "id",
                     "",
                 )
             )
 
             subscription.stripe_customer_id = (
-                checkout_session.get(
+                stripe_value(
+                    checkout_session,
                     "customer",
                     "",
                 )
@@ -453,25 +477,28 @@ def subscription_portal(request):
 def activate_pro_subscription(
     stripe_subscription,
 ):
-    metadata = stripe_subscription.get(
+    metadata = stripe_value(
+        stripe_subscription,
         "metadata",
         {},
     )
 
-    user_id = metadata.get(
-        "user_id"
+    user_id = stripe_value(
+        metadata,
+        "user_id",
+        None,
     )
 
-    customer_id = stripe_subscription.get(
+    customer_id = stripe_value(
+        stripe_subscription,
         "customer",
         "",
     )
 
-    stripe_subscription_id = (
-        stripe_subscription.get(
-            "id",
-            "",
-        )
+    stripe_subscription_id = stripe_value(
+        stripe_subscription,
+        "id",
+        "",
     )
 
     if user_id:
@@ -520,7 +547,8 @@ def activate_pro_subscription(
         user
     )
 
-    stripe_status = stripe_subscription.get(
+    stripe_status = stripe_value(
+        stripe_subscription,
         "status",
         "",
     )
@@ -543,10 +571,15 @@ def activate_pro_subscription(
     subscription.stripe_subscription_id = (
         stripe_subscription_id
     )
-    subscription.started_at = timezone.now()
+
+    if subscription.started_at is None:
+        subscription.started_at = timezone.now()
+
     subscription.expires_at = timestamp_to_datetime(
-        stripe_subscription.get(
-            "current_period_end"
+        stripe_value(
+            stripe_subscription,
+            "current_period_end",
+            None,
         )
     )
 
@@ -566,14 +599,14 @@ def activate_pro_subscription(
 def deactivate_pro_subscription(
     stripe_subscription,
 ):
-    stripe_subscription_id = (
-        stripe_subscription.get(
-            "id",
-            "",
-        )
+    stripe_subscription_id = stripe_value(
+        stripe_subscription,
+        "id",
+        "",
     )
 
-    customer_id = stripe_subscription.get(
+    customer_id = stripe_value(
+        stripe_subscription,
         "customer",
         "",
     )
@@ -661,7 +694,18 @@ def stripe_webhook(request):
 
     try:
         configure_stripe()
+    except ValueError as exc:
+        logger.exception(
+            "Stripe configuration error: %s",
+            exc,
+        )
 
+        return HttpResponse(
+            "Stripe is not configured correctly.",
+            status=500,
+        )
+
+    try:
         event = stripe.Webhook.construct_event(
             payload=payload,
             sig_header=signature,
@@ -686,35 +730,28 @@ def stripe_webhook(request):
             "Invalid Stripe signature."
         )
 
-    except ValueError as exc:
-        logger.exception(
-            "Stripe configuration error: %s",
-            exc,
-        )
-
-        return HttpResponse(
-            "Stripe is not configured correctly.",
-            status=500,
-        )
-
-    event_id = event.get(
+    event_id = stripe_value(
+        event,
         "id",
         "",
     )
 
-    event_type = event.get(
+    event_type = stripe_value(
+        event,
         "type",
         "",
     )
 
-    event_object = (
-        event.get(
-            "data",
-            {},
-        ).get(
-            "object",
-            {},
-        )
+    event_data = stripe_value(
+        event,
+        "data",
+        {},
+    )
+
+    event_object = stripe_value(
+        event_data,
+        "object",
+        {},
     )
 
     logger.info(
@@ -725,29 +762,35 @@ def stripe_webhook(request):
 
     try:
         if event_type == "checkout.session.completed":
-            payment_status = event_object.get(
+            payment_status = stripe_value(
+                event_object,
                 "payment_status",
                 "",
             )
 
-            session_mode = event_object.get(
+            session_mode = stripe_value(
+                event_object,
                 "mode",
                 "",
             )
 
-            user_id = (
-                event_object.get(
-                    "metadata",
-                    {},
-                ).get(
-                    "user_id"
-                )
+            metadata = stripe_value(
+                event_object,
+                "metadata",
+                {},
+            )
+
+            user_id = stripe_value(
+                metadata,
+                "user_id",
+                None,
             )
 
             if not user_id:
                 logger.warning(
                     "Checkout Session %s has no user_id metadata.",
-                    event_object.get(
+                    stripe_value(
+                        event_object,
                         "id",
                         "",
                     ),
@@ -774,18 +817,18 @@ def stripe_webhook(request):
                 )
 
             subscription.stripe_customer_id = (
-                event_object.get(
+                stripe_value(
+                    event_object,
                     "customer",
                     "",
                 )
                 or subscription.stripe_customer_id
             )
 
-            stripe_subscription_id = (
-                event_object.get(
-                    "subscription",
-                    "",
-                )
+            stripe_subscription_id = stripe_value(
+                event_object,
+                "subscription",
+                "",
             )
 
             if stripe_subscription_id:
@@ -794,7 +837,8 @@ def stripe_webhook(request):
                 )
 
             subscription.stripe_checkout_session_id = (
-                event_object.get(
+                stripe_value(
+                    event_object,
                     "id",
                     "",
                 )
@@ -841,11 +885,10 @@ def stripe_webhook(request):
             )
 
         elif event_type == "invoice.payment_succeeded":
-            stripe_subscription_id = (
-                event_object.get(
-                    "subscription",
-                    "",
-                )
+            stripe_subscription_id = stripe_value(
+                event_object,
+                "subscription",
+                "",
             )
 
             if stripe_subscription_id:
@@ -860,11 +903,10 @@ def stripe_webhook(request):
                 )
 
         elif event_type == "invoice.payment_failed":
-            stripe_subscription_id = (
-                event_object.get(
-                    "subscription",
-                    "",
-                )
+            stripe_subscription_id = stripe_value(
+                event_object,
+                "subscription",
+                "",
             )
 
             if stripe_subscription_id:
