@@ -44,6 +44,12 @@ def register_view(request):
     )
 
 
+from django.contrib import messages
+from django.contrib.auth import login
+from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
@@ -56,6 +62,7 @@ def login_view(request):
 
         if form.is_valid():
             user = form.get_user()
+
             login(request, user)
 
             messages.success(
@@ -63,9 +70,16 @@ def login_view(request):
                 f"Welcome back, {user.username}.",
             )
 
-            next_url = request.GET.get("next")
+            next_url = request.POST.get("next") or request.GET.get("next")
 
-            if next_url:
+            if (
+                next_url
+                and url_has_allowed_host_and_scheme(
+                    url=next_url,
+                    allowed_hosts={request.get_host()},
+                    require_https=request.is_secure(),
+                )
+            ):
                 return redirect(next_url)
 
             return redirect("dashboard")
@@ -74,6 +88,7 @@ def login_view(request):
             request,
             "Invalid username or password.",
         )
+
     else:
         form = LoginForm(request=request)
 
@@ -82,9 +97,9 @@ def login_view(request):
         "accounts/login.html",
         {
             "form": form,
+            "next": request.GET.get("next", ""),
         },
     )
-
 
 @login_required
 def account_settings_view(request):

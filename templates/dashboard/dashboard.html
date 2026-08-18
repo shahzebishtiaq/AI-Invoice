@@ -33,10 +33,12 @@ Dashboard
     </div>
 </div>
 
-<div class="card">
+
+<section class="dashboard-section">
+
     <div class="section-header">
         <div>
-            <h2>Your subscription</h2>
+            <h2>Subscription</h2>
 
             <p class="text-muted">
                 Current plan and invoice usage.
@@ -45,6 +47,7 @@ Dashboard
     </div>
 
     <div class="stats-grid">
+
         <div class="stat-card">
             <span class="stat-label">
                 Current plan
@@ -64,6 +67,7 @@ Dashboard
                 </span>
             {% endif %}
         </div>
+
 
         <div class="stat-card">
             <span class="stat-label">
@@ -89,6 +93,7 @@ Dashboard
             {% endif %}
         </div>
 
+
         <div class="stat-card">
             <span class="stat-label">
                 Remaining invoices
@@ -112,6 +117,7 @@ Dashboard
                 </span>
             {% endif %}
         </div>
+
     </div>
 
     {% if invoice_limit and remaining_invoices == 0 %}
@@ -121,130 +127,175 @@ Dashboard
             Upgrade to Pro to create more invoices.
         </div>
     {% endif %}
-</div>
 
-<div class="stats-grid">
-    <div class="stat-card">
-        <span class="stat-label">
-            Total clients
-        </span>
+</section>
 
-        <strong class="stat-value">
-            {{ total_clients }}
-        </strong>
 
-        <a href="{% url 'client_list' %}">
-            View clients
-        </a>
-    </div>
+<section class="dashboard-section">
 
-    <div class="stat-card">
-        <span class="stat-label">
-            Total invoices
-        </span>
-
-        <strong class="stat-value">
-            {{ total_invoices }}
-        </strong>
-
-        <a href="{% url 'invoice_list' %}">
-            View invoices
-        </a>
-    </div>
-
-    <div class="stat-card">
-        <span class="stat-label">
-            Paid revenue
-        </span>
-
-        <strong class="stat-value">
-            {{ request.user.default_currency }}
-            {{ paid_revenue|floatformat:2 }}
-        </strong>
-
-        <span class="text-muted">
-            {{ paid_invoices }}
-            paid invoice{{ paid_invoices|pluralize }}
-        </span>
-    </div>
-
-    <div class="stat-card">
-        <span class="stat-label">
-            Unpaid amount
-        </span>
-
-        <strong class="stat-value">
-            {{ request.user.default_currency }}
-            {{ unpaid_amount|floatformat:2 }}
-        </strong>
-
-        <span class="text-muted">
-            Sent and overdue invoices
-        </span>
-    </div>
-</div>
-
-<div class="stats-grid status-stats">
-    <div class="stat-card">
-        <span class="stat-label">
-            Draft
-        </span>
-
-        <strong class="stat-value">
-            {{ draft_invoices }}
-        </strong>
-
-        <span class="text-muted">
-            {{ request.user.default_currency }}
-            {{ draft_amount|floatformat:2 }}
-        </span>
-    </div>
-
-    <div class="stat-card">
-        <span class="stat-label">
-            Sent
-        </span>
-
-        <strong class="stat-value">
-            {{ sent_invoices }}
-        </strong>
-    </div>
-
-    <div class="stat-card">
-        <span class="stat-label">
-            Paid
-        </span>
-
-        <strong class="stat-value">
-            {{ paid_invoices }}
-        </strong>
-    </div>
-
-    <div class="stat-card">
-        <span class="stat-label">
-            Overdue
-        </span>
-
-        <strong class="stat-value">
-            {{ overdue_invoices }}
-        </strong>
-    </div>
-
-    <div class="stat-card">
-        <span class="stat-label">
-            Cancelled
-        </span>
-
-        <strong class="stat-value">
-            {{ cancelled_invoices }}
-        </strong>
-    </div>
-</div>
-
-<div class="card">
     <div class="section-header">
         <div>
-            <h2>Recent invoices</h2>
+            <h2>Business Overview</h2>
+
+            <p class="text-muted">
+                Key statistics for your invoicing business.
+            </p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Total clients
+            </span>
+
+            <strong class="stat-value">
+                {{ total_clients }}
+            </strong>
+
+            <a href="{% url 'client_list' %}">
+                View clients
+            </a>
+        </div>
+
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Total invoices
+            </span>
+
+            <strong class="stat-value">
+                {{ total_invoices }}
+            </strong>
+
+            <a href="{% url 'invoice_list' %}">
+                View invoices
+            </a>
+        </div>
+
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Paid revenue
+            </span>
+
+            <strong class="stat-value">
+                {{ request.user.default_currency }}
+                {{ paid_revenue|floatformat:2 }}
+            </strong>
+
+            <span class="text-muted">
+                {{ paid_invoices }}
+                paid invoice{{ paid_invoices|pluralize }}
+            </span>
+        </div>
+
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Unpaid amount
+            </span>
+
+            <strong class="stat-value">
+                {{ request.user.default_currency }}
+                {{ unpaid_amount|floatformat:2 }}
+            </strong>
+
+            <span class="text-muted">
+                Sent and overdue invoices
+            </span>
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="dashboard-section">
+
+    <div class="section-header">
+        <div>
+            <h2>Invoice Status</h2>
+
+            <p class="text-muted">
+                Overview of invoices by status.
+            </p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Draft
+            </span>
+
+            <strong class="stat-value">
+                {{ draft_invoices }}
+            </strong>
+
+            <span class="text-muted">
+                {{ request.user.default_currency }}
+                {{ draft_amount|floatformat:2 }}
+            </span>
+        </div>
+
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Sent
+            </span>
+
+            <strong class="stat-value">
+                {{ sent_invoices }}
+            </strong>
+        </div>
+
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Paid
+            </span>
+
+            <strong class="stat-value">
+                {{ paid_invoices }}
+            </strong>
+        </div>
+
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Overdue
+            </span>
+
+            <strong class="stat-value">
+                {{ overdue_invoices }}
+            </strong>
+        </div>
+
+
+        <div class="stat-card">
+            <span class="stat-label">
+                Cancelled
+            </span>
+
+            <strong class="stat-value">
+                {{ cancelled_invoices }}
+            </strong>
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="dashboard-section">
+
+    <div class="section-header">
+
+        <div>
+            <h2>Recent Invoices</h2>
 
             <p class="text-muted">
                 Your five most recently created invoices.
@@ -257,11 +308,16 @@ Dashboard
         >
             View all
         </a>
+
     </div>
 
+
     {% if recent_invoices %}
+
         <div class="table-responsive">
+
             <table class="data-table">
+
                 <thead>
                     <tr>
                         <th>Invoice</th>
@@ -274,8 +330,11 @@ Dashboard
                 </thead>
 
                 <tbody>
+
                     {% for invoice in recent_invoices %}
+
                         <tr>
+
                             <td>
                                 <a
                                     href="{% url 'invoice_detail' invoice.pk %}"
@@ -310,13 +369,21 @@ Dashboard
                                 {{ request.user.default_currency }}
                                 {{ invoice.total|floatformat:2 }}
                             </td>
+
                         </tr>
+
                     {% endfor %}
+
                 </tbody>
+
             </table>
+
         </div>
+
     {% else %}
+
         <div class="empty-state">
+
             <h2>No invoices yet</h2>
 
             <p>
@@ -325,6 +392,7 @@ Dashboard
             </p>
 
             <div class="button-group">
+
                 <a
                     href="{% url 'client_create' %}"
                     class="btn btn-secondary"
@@ -338,9 +406,13 @@ Dashboard
                 >
                     Create invoice
                 </a>
+
             </div>
+
         </div>
+
     {% endif %}
-</div>
+
+</section>
 
 {% endblock %}
