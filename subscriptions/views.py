@@ -51,10 +51,10 @@ def configure_stripe():
             "STRIPE_SECRET_KEY is not configured in the .env file."
         )
 
-    if not secret_key.startswith("sk_test_"):
+    if not secret_key.startswith(("sk_test_", "sk_live_")):
         raise ValueError(
-            "STRIPE_SECRET_KEY must be a real Stripe test secret key "
-            "starting with sk_test_."
+            "STRIPE_SECRET_KEY must be a valid Stripe secret key "
+            "starting with sk_test_ or sk_live_."
         )
 
     stripe.api_key = secret_key

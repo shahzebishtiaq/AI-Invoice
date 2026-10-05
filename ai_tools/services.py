@@ -23,24 +23,6 @@ def get_openai_client():
         api_key=api_key,
     )
 
-
-def get_fallback_items():
-    """
-    Return test data when no OpenAI API key is configured.
-
-    This allows the rest of the project to be tested without
-    spending API credits.
-    """
-
-    return [
-        {
-            "description": "Professional service",
-            "quantity": Decimal("1.00"),
-            "unit_price": Decimal("100.00"),
-        }
-    ]
-
-
 def extract_json_from_text(content):
     """
     Remove accidental Markdown code fences before parsing JSON.
@@ -162,9 +144,12 @@ def generate_invoice_items(prompt):
     client = get_openai_client()
 
     if client is None:
-        return get_fallback_items()
+        raise AIInvoiceGenerationError(
+            "AI invoice generation is unavailable because the OpenAI API key is not configured."
+        )
 
     instructions = """
+    
 You generate professional invoice line items.
 
 Convert the user's description into a JSON array.
